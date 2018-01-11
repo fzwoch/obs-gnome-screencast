@@ -69,55 +69,55 @@ static const char* gnome_screencast_get_name(void* type_data)
 
 static void gnome_screencast_start(gnome_screencast_data_t* data, obs_data_t* settings)
 {
-		GError* err = NULL;
+	GError* err = NULL;
 
-		GdkRectangle rect;
-		gdk_monitor_get_geometry(gdk_display_get_monitor(gdk_display_get_default(), obs_data_get_int(settings, "screen")), &rect);
+	GdkRectangle rect;
+	gdk_monitor_get_geometry(gdk_display_get_monitor(gdk_display_get_default(), obs_data_get_int(settings, "screen")), &rect);
 
-		gchar* tmp_socket = g_strdup_printf("/tmp/obs-gnome-screencast-%d", g_random_int_range(0,10000000));
-		gchar* variant = g_strdup_printf("{'draw-cursor' : <%s>, 'framerate' : <%lld>, 'pipeline' : <'tee name=tee ! queue ! shmsink socket-path=%s wait-for-connection=false sync=false tee. ! queue'>}", obs_data_get_bool(settings, "show_cursor") ? "true" : "false", obs_data_get_int(settings, "frame_rate"), tmp_socket);
+	gchar* tmp_socket = g_strdup_printf("/tmp/obs-gnome-screencast-%d", g_random_int_range(0,10000000));
+	gchar* variant = g_strdup_printf("{'draw-cursor' : <%s>, 'framerate' : <%lld>, 'pipeline' : <'tee name=tee ! queue ! shmsink socket-path=%s wait-for-connection=false sync=false tee. ! queue'>}", obs_data_get_bool(settings, "show_cursor") ? "true" : "false", obs_data_get_int(settings, "frame_rate"), tmp_socket);
 
-		GVariantBuilder* builder = g_variant_builder_new(G_VARIANT_TYPE_TUPLE);
-		g_variant_builder_add_value(builder, g_variant_new_int32(rect.x));
-		g_variant_builder_add_value(builder, g_variant_new_int32(rect.y));
-		g_variant_builder_add_value(builder, g_variant_new_int32(rect.width));
-		g_variant_builder_add_value(builder, g_variant_new_int32(rect.height));
-		g_variant_builder_add_value(builder, g_variant_new_string("/dev/null"));
-		g_variant_builder_add_value(builder, g_variant_new_parsed(variant));
-		g_free(variant);
+	GVariantBuilder* builder = g_variant_builder_new(G_VARIANT_TYPE_TUPLE);
+	g_variant_builder_add_value(builder, g_variant_new_int32(rect.x));
+	g_variant_builder_add_value(builder, g_variant_new_int32(rect.y));
+	g_variant_builder_add_value(builder, g_variant_new_int32(rect.width));
+	g_variant_builder_add_value(builder, g_variant_new_int32(rect.height));
+	g_variant_builder_add_value(builder, g_variant_new_string("/dev/null"));
+	g_variant_builder_add_value(builder, g_variant_new_parsed(variant));
+	g_free(variant);
 
-		data->connection = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &err);
-		GVariant* res = g_dbus_connection_call_sync(
-			data->connection,
-			"org.gnome.Shell.Screencast",
-			"/org/gnome/Shell/Screencast",
-			"org.gnome.Shell.Screencast",
-			"ScreencastArea",
-			g_variant_builder_end(builder),
-			NULL,
-			G_DBUS_CALL_FLAGS_NONE,
-			-1,
-			NULL,
-			&err);
+	data->connection = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &err);
+	GVariant* res = g_dbus_connection_call_sync(
+		data->connection,
+		"org.gnome.Shell.Screencast",
+		"/org/gnome/Shell/Screencast",
+		"org.gnome.Shell.Screencast",
+		"ScreencastArea",
+		g_variant_builder_end(builder),
+		NULL,
+		G_DBUS_CALL_FLAGS_NONE,
+		-1,
+		NULL,
+		&err);
 
-		g_variant_builder_unref(builder);
+	g_variant_builder_unref(builder);
 
-		gchar* pipe = g_strdup_printf("shmsrc socket-path=%s ! rawvideoparse format=bgrx width=%d height=%d ! appsink name=appsink sync=false", tmp_socket, rect.width, rect.height);
-		data->pipe = gst_parse_launch(pipe, &err);
-		g_free(pipe);
-		g_free(tmp_socket);
+	gchar* pipe = g_strdup_printf("shmsrc socket-path=%s ! rawvideoparse format=bgrx width=%d height=%d ! appsink name=appsink sync=false", tmp_socket, rect.width, rect.height);
+	data->pipe = gst_parse_launch(pipe, &err);
+	g_free(pipe);
+	g_free(tmp_socket);
 
-		GstAppSinkCallbacks cbs = {
-			NULL,
-			NULL,
-			gnome_screencast_new_sample
-		};
+	GstAppSinkCallbacks cbs = {
+		NULL,
+		NULL,
+		gnome_screencast_new_sample
+	};
 
-		GstElement* appsink = gst_bin_get_by_name(GST_BIN(data->pipe), "appsink");
-		gst_app_sink_set_callbacks(GST_APP_SINK(appsink), &cbs, data, NULL);
-		gst_object_unref(appsink);
+	GstElement* appsink = gst_bin_get_by_name(GST_BIN(data->pipe), "appsink");
+	gst_app_sink_set_callbacks(GST_APP_SINK(appsink), &cbs, data, NULL);
+	gst_object_unref(appsink);
 
-		gst_element_set_state(data->pipe, GST_STATE_PLAYING);
+	gst_element_set_state(data->pipe, GST_STATE_PLAYING);
 }
 
 static void* gnome_screencast_create(obs_data_t* settings, obs_source_t* source)
