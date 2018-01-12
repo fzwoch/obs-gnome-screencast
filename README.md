@@ -19,6 +19,8 @@ best bet for a live source.
 
 ## Known issues
 
+GNOME Screen Cast seems to be limited to a single concurrent session.
+
 The mouse cursor is currently very choppy. The reason for this is that the
 cursor drawing is done at the GNOME Screen Cast implementation but they only
 update cursor coordinates every 100ms.
