@@ -29,5 +29,6 @@ shared_library('gnome-screencast',
     dependency('gstreamer-1.0'),
     dependency('gstreamer-app-1.0'),
     dependency('gdk-3.0')
-  ]
+  ],
+  link_args : '-static-libgcc'
 )
