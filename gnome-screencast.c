@@ -71,8 +71,14 @@ static void gnome_screencast_start(gnome_screencast_data_t* data, obs_data_t* se
 {
 	GError* err = NULL;
 
+	gint screen = obs_data_get_int(settings, "screen");
+	if (screen > gdk_display_get_n_monitors(gdk_display_get_default()) - 1)
+	{
+		screen = 0;
+	}
+
 	GdkRectangle rect;
-	gdk_monitor_get_geometry(gdk_display_get_monitor(gdk_display_get_default(), obs_data_get_int(settings, "screen")), &rect);
+	gdk_monitor_get_geometry(gdk_display_get_monitor(gdk_display_get_default(), screen), &rect);
 
 	gchar* tmp_socket = g_strdup_printf("/tmp/obs-gnome-screencast-%d", g_random_int_range(0,10000000));
 	gchar* variant = g_strdup_printf("{'draw-cursor' : <%s>, 'framerate' : <%lld>, 'pipeline' : <'tee name=tee ! queue ! shmsink socket-path=%s wait-for-connection=false sync=false tee. ! queue'>}", obs_data_get_bool(settings, "show_cursor") ? "true" : "false", obs_data_get_int(settings, "frame_rate"), tmp_socket);
