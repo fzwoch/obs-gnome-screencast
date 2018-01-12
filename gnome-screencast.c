@@ -87,6 +87,13 @@ static void gnome_screencast_start(gnome_screencast_data_t* data, obs_data_t* se
 	g_free(variant);
 
 	data->connection = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &err);
+	if (err != NULL)
+	{
+		blog(LOG_ERROR, "Cannot connect to DBus: %s", err->message);
+		g_error_free(err);
+		err = NULL;
+	}
+
 	GVariant* res = g_dbus_connection_call_sync(
 		data->connection,
 		"org.gnome.Shell.Screencast",
@@ -100,6 +107,23 @@ static void gnome_screencast_start(gnome_screencast_data_t* data, obs_data_t* se
 		NULL,
 		&err);
 
+	if (err != NULL)
+	{
+		blog(LOG_ERROR, "Cannot start GNOME Screen Cast - DBus call failed: %s", err->message);
+		g_error_free(err);
+		err = NULL;
+	}
+
+	gboolean success = false;
+	gchar* file = NULL;
+	g_variant_get(res, "(bs)", &success, &file);
+
+	if (success != TRUE)
+	{
+		blog(LOG_ERROR, "Cannot start GNOME Screen Cast");
+	}
+
+	g_variant_unref(res);
 	g_variant_builder_unref(builder);
 
 	gchar* pipe = g_strdup_printf("shmsrc socket-path=%s ! rawvideoparse format=bgrx width=%d height=%d ! appsink name=appsink sync=false", tmp_socket, rect.width, rect.height);
@@ -151,6 +175,22 @@ static void gnome_screencast_stop(gnome_screencast_data_t* data)
 		NULL,
 		&err);
 
+	if (err != NULL)
+	{
+		blog(LOG_ERROR, "Cannot stop GNOME Screen Cast - DBus call failed: %s", err->message);
+		g_error_free(err);
+		err = NULL;
+	}
+
+	gboolean success = false;
+	g_variant_get(res, "(b)", &success);
+
+	if (success != TRUE)
+	{
+		blog(LOG_ERROR, "Cannot stop GNOME Screen Cast");
+	}
+
+	g_variant_unref(res);
 	g_object_unref(data->connection);
 }
 
@@ -197,7 +237,7 @@ bool obs_module_load(void)
 
 	info.id = "gnome-screencast-source";
 	info.type = OBS_SOURCE_TYPE_INPUT;
-	info.output_flags = OBS_SOURCE_ASYNC_VIDEO;
+	info.output_flags = OBS_SOURCE_ASYNC_VIDEO | OBS_SOURCE_DO_NOT_DUPLICATE;
 
 	info.get_name = gnome_screencast_get_name;
 	info.create = gnome_screencast_create;
