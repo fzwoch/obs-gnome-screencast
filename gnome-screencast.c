@@ -128,7 +128,7 @@ static void gnome_screencast_start(gnome_screencast_data_t* data, obs_data_t* se
 		err = NULL;
 	}
 
-	gboolean success = false;
+	gboolean success = FALSE;
 	gchar* file = NULL;
 	g_variant_get(res, "(bs)", &success, &file);
 
@@ -198,7 +198,7 @@ static void gnome_screencast_stop(gnome_screencast_data_t* data)
 		err = NULL;
 	}
 
-	gboolean success = false;
+	gboolean success = FALSE;
 	g_variant_get(res, "(b)", &success);
 
 	if (success != TRUE)
