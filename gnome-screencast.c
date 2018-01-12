@@ -31,6 +31,7 @@ typedef struct {
 	GDBusConnection* connection;
 	GstElement* pipe;
 	obs_source_t* source;
+	gint64 timestamp_offset;
 } gnome_screencast_data_t;
 
 static GstFlowReturn gnome_screencast_new_sample(GstAppSink* appsink, gpointer user_data)
@@ -48,8 +49,15 @@ static GstFlowReturn gnome_screencast_new_sample(GstAppSink* appsink, gpointer u
 	GstBuffer* buffer = gst_sample_get_buffer(sample);
 	gst_buffer_map(buffer, &info, GST_MAP_READ);
 
+	gint64 timestamp = os_gettime_ns();
+
+	if (data->timestamp_offset == -1)
+	{
+		data->timestamp_offset = timestamp;
+	}
+
 	frame.format = VIDEO_FORMAT_BGRA;
-	frame.timestamp = os_gettime_ns();
+	frame.timestamp = timestamp - data->timestamp_offset;
 	frame.full_range = true;
 	frame.linesize[0] = frame.width * 4;
 	frame.data[0] = info.data;
@@ -146,6 +154,8 @@ static void gnome_screencast_start(gnome_screencast_data_t* data, obs_data_t* se
 	GstElement* appsink = gst_bin_get_by_name(GST_BIN(data->pipe), "appsink");
 	gst_app_sink_set_callbacks(GST_APP_SINK(appsink), &cbs, data, NULL);
 	gst_object_unref(appsink);
+
+	data->timestamp_offset = -1;
 
 	gst_element_set_state(data->pipe, GST_STATE_PLAYING);
 }
