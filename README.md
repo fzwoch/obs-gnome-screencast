@@ -25,13 +25,6 @@ The mouse cursor is currently very choppy. The reason for this is that the
 cursor drawing is done at the GNOME Screen Cast implementation but they only
 update cursor coordinates every 100ms.
 
-Not enough error checking and reporting. If it fails for you you probably have
-to do some debugging by yourself.
-
-Not very well tested. I just clicked around a bit to check it seems working in
-general. But multi monitor setups etc. are coded by best guess - but have not
-been verified if they are actually working correctly.
-
 ## Build
 
 I don't know CMake so you will have to deal with meson instead. Assuming that
