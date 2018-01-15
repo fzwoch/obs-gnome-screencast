@@ -50,15 +50,8 @@ static GstFlowReturn gnome_screencast_new_sample(GstAppSink* appsink, gpointer u
 	GstBuffer* buffer = gst_sample_get_buffer(sample);
 	gst_buffer_map(buffer, &info, GST_MAP_READ);
 
-	gint64 timestamp = os_gettime_ns();
-
-	if (data->timestamp_offset == -1)
-	{
-		data->timestamp_offset = timestamp;
-	}
-
 	frame.format = VIDEO_FORMAT_BGRA;
-	frame.timestamp = timestamp - data->timestamp_offset;
+	frame.timestamp = data->timestamp_offset++;
 	frame.full_range = true;
 	frame.linesize[0] = frame.width * 4;
 	frame.data[0] = info.data;
@@ -167,7 +160,7 @@ static void gnome_screencast_start(gnome_screencast_data_t* data, obs_data_t* se
 	gst_app_sink_set_callbacks(GST_APP_SINK(appsink), &cbs, data, NULL);
 	gst_object_unref(appsink);
 
-	data->timestamp_offset = -1;
+	data->timestamp_offset = 0;
 
 	gst_element_set_state(data->pipe, GST_STATE_PLAYING);
 }
@@ -178,6 +171,8 @@ static void* gnome_screencast_create(obs_data_t* settings, obs_source_t* source)
 
 	data->source = source;
 	data->settings = settings;
+
+	gnome_screencast_start(data, settings);
 
 	return data;
 }
@@ -238,16 +233,6 @@ static void gnome_screencast_destroy(void* data)
 	g_free(data);
 }
 
-void gnome_screencast_activate(void* data)
-{
-	gnome_screencast_start(data, ((gnome_screencast_data_t*)data)->settings);
-}
-
-void gnome_screencast_deactivate(void* data)
-{
-	gnome_screencast_stop(data);
-}
-
 static void gnome_screencast_get_defaults(obs_data_t* settings)
 {
 	obs_data_set_default_int(settings, "screen", 0);
@@ -290,8 +275,6 @@ bool obs_module_load(void)
 	info.get_name = gnome_screencast_get_name;
 	info.create = gnome_screencast_create;
 	info.destroy = gnome_screencast_destroy;
-	info.activate = gnome_screencast_activate;
-	info.deactivate = gnome_screencast_deactivate;
 
 	info.get_defaults = gnome_screencast_get_defaults;
 	info.get_properties = gnome_screencat_get_properties;
