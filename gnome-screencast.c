@@ -96,7 +96,10 @@ static void gnome_screencast_start(gnome_screencast_data_t* data, obs_data_t* se
 	if (err != NULL)
 	{
 		blog(LOG_ERROR, "Cannot connect to DBus: %s", err->message);
+
 		g_error_free(err);
+		g_variant_builder_unref(builder);
+		g_free(tmp_socket);
 
 		return;
 	}
@@ -114,10 +117,14 @@ static void gnome_screencast_start(gnome_screencast_data_t* data, obs_data_t* se
 		NULL,
 		&err);
 
+	g_variant_builder_unref(builder);
+
 	if (err != NULL)
 	{
 		blog(LOG_ERROR, "Cannot start GNOME Screen Cast - DBus call failed: %s", err->message);
+
 		g_error_free(err);
+		g_free(tmp_socket);
 
 		g_object_unref(data->connection);
 		data->connection = NULL;
@@ -129,11 +136,12 @@ static void gnome_screencast_start(gnome_screencast_data_t* data, obs_data_t* se
 	gchar* file = NULL;
 	g_variant_get(res, "(bs)", &success, &file);
 	g_variant_unref(res);
-	g_variant_builder_unref(builder);
 
 	if (success != TRUE)
 	{
 		blog(LOG_ERROR, "Cannot start GNOME Screen Cast");
+
+		g_free(tmp_socket);
 
 		g_object_unref(data->connection);
 		data->connection = NULL;
