@@ -30,7 +30,6 @@ typedef struct {
 	GDBusConnection* connection;
 	GstElement* pipe;
 	obs_source_t* source;
-	obs_data_t* settings;
 	gint64 frame_count;
 } gnome_screencast_data_t;
 
@@ -167,7 +166,6 @@ static void* gnome_screencast_create(obs_data_t* settings, obs_source_t* source)
 	gnome_screencast_data_t* data = g_new0(gnome_screencast_data_t, 1);
 
 	data->source = source;
-	data->settings = settings;
 
 	gnome_screencast_start(data, settings);
 
