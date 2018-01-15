@@ -32,7 +32,7 @@ typedef struct {
 	GstElement* pipe;
 	obs_source_t* source;
 	obs_data_t* settings;
-	gint64 timestamp_offset;
+	gint64 frame_count;
 } gnome_screencast_data_t;
 
 static GstFlowReturn gnome_screencast_new_sample(GstAppSink* appsink, gpointer user_data)
@@ -51,7 +51,7 @@ static GstFlowReturn gnome_screencast_new_sample(GstAppSink* appsink, gpointer u
 	gst_buffer_map(buffer, &info, GST_MAP_READ);
 
 	frame.format = VIDEO_FORMAT_BGRA;
-	frame.timestamp = data->timestamp_offset++;
+	frame.timestamp = data->frame_count++;
 	frame.full_range = true;
 	frame.linesize[0] = frame.width * 4;
 	frame.data[0] = info.data;
@@ -160,7 +160,7 @@ static void gnome_screencast_start(gnome_screencast_data_t* data, obs_data_t* se
 	gst_app_sink_set_callbacks(GST_APP_SINK(appsink), &cbs, data, NULL);
 	gst_object_unref(appsink);
 
-	data->timestamp_offset = 0;
+	data->frame_count = 0;
 
 	gst_element_set_state(data->pipe, GST_STATE_PLAYING);
 }
