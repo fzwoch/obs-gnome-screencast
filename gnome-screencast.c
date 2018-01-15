@@ -98,7 +98,6 @@ static void gnome_screencast_start(gnome_screencast_data_t* data, obs_data_t* se
 	{
 		blog(LOG_ERROR, "Cannot connect to DBus: %s", err->message);
 		g_error_free(err);
-		err = NULL;
 
 		return;
 	}
@@ -120,7 +119,6 @@ static void gnome_screencast_start(gnome_screencast_data_t* data, obs_data_t* se
 	{
 		blog(LOG_ERROR, "Cannot start GNOME Screen Cast - DBus call failed: %s", err->message);
 		g_error_free(err);
-		err = NULL;
 
 		g_object_unref(data->connection);
 		data->connection = NULL;
@@ -209,7 +207,6 @@ static void gnome_screencast_stop(gnome_screencast_data_t* data)
 	{
 		blog(LOG_ERROR, "Cannot stop GNOME Screen Cast - DBus call failed: %s", err->message);
 		g_error_free(err);
-		err = NULL;
 
 		g_object_unref(data->connection);
 		data->connection = NULL;
