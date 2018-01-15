@@ -11,9 +11,11 @@ The implementation is kind of weird. Not sure if there are better ways - but the
 GNOME Screen Cast normally insist of writing to a file. Here we trick the system
 to write to a SHM socket instead which we then read and pass to OBS.
 
-I'm not sure how latency or audio/video sync is handled by OBS. But as soon as
+I'm not sure how latency or audio/video sync is handled by OBS. ~~But as soon as
 a frame is read it gets a time stamp of `os_gettime_ns()` which felt like the
-best bet for a live source.
+best bet for a live source.~~ Since I have no idea what the master clock is each
+frame gets a time stamp of it's frame number. OBS Studio seems smart enough to
+do the right thing then.
 
 [1]: https://obsproject.com/
 

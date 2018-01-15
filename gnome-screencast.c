@@ -19,7 +19,6 @@
  */
 
 #include <obs/obs-module.h>
-#include <obs/util/platform.h>
 #include <gio/gio.h>
 #include <gst/gst.h>
 #include <gst/app/app.h>
