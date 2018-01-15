@@ -211,17 +211,21 @@ static void gnome_screencast_stop(gnome_screencast_data_t* data)
 		blog(LOG_ERROR, "Cannot stop GNOME Screen Cast - DBus call failed: %s", err->message);
 		g_error_free(err);
 		err = NULL;
+
+		g_object_unref(data->connection);
+		data->connection = NULL;
+
+		return;
 	}
 
 	gboolean success = FALSE;
 	g_variant_get(res, "(b)", &success);
+	g_variant_unref(res);
 
 	if (success != TRUE)
 	{
 		blog(LOG_ERROR, "Cannot stop GNOME Screen Cast");
 	}
-
-	g_variant_unref(res);
 
 	g_object_unref(data->connection);
 	data->connection = NULL;
