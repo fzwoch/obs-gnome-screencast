@@ -31,6 +31,7 @@ typedef struct {
 	GDBusConnection* connection;
 	GstElement* pipe;
 	obs_source_t* source;
+	obs_data_t* settings;
 	gint64 timestamp_offset;
 } gnome_screencast_data_t;
 
@@ -165,8 +166,7 @@ static void* gnome_screencast_create(obs_data_t* settings, obs_source_t* source)
 	gnome_screencast_data_t* data = g_new0(gnome_screencast_data_t, 1);
 
 	data->source = source;
-
-	gnome_screencast_start(data, settings);
+	data->settings = settings;
 
 	return data;
 }
@@ -216,6 +216,16 @@ static void gnome_screencast_destroy(void* data)
 	g_free(data);
 }
 
+void gnome_screencast_activate(void* data)
+{
+	gnome_screencast_start(data, ((gnome_screencast_data_t*)data)->settings);
+}
+
+void gnome_screencast_deactivate(void* data)
+{
+	gnome_screencast_stop(data);
+}
+
 static void gnome_screencast_get_defaults(obs_data_t* settings)
 {
 	obs_data_set_default_int(settings, "screen", 0);
@@ -258,6 +268,8 @@ bool obs_module_load(void)
 	info.get_name = gnome_screencast_get_name;
 	info.create = gnome_screencast_create;
 	info.destroy = gnome_screencast_destroy;
+	info.activate = gnome_screencast_activate;
+	info.deactivate = gnome_screencast_deactivate;
 
 	info.get_defaults = gnome_screencast_get_defaults;
 	info.get_properties = gnome_screencat_get_properties;
