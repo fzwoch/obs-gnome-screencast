@@ -140,7 +140,7 @@ static void gnome_screencast_start(gnome_screencast_data_t* data, obs_data_t* se
 	g_variant_unref(res);
 	g_variant_builder_unref(builder);
 
-	gchar* pipe = g_strdup_printf("shmsrc socket-path=%s ! rawvideoparse format=bgrx width=%d height=%d ! appsink name=appsink sync=false", tmp_socket, rect.width, rect.height);
+	gchar* pipe = g_strdup_printf("shmsrc socket-path=%s ! rawvideoparse format=bgrx width=%d height=%d ! appsink max-buffers=10 drop=true name=appsink sync=false", tmp_socket, rect.width, rect.height);
 	data->pipe = gst_parse_launch(pipe, &err);
 	g_free(pipe);
 	g_free(tmp_socket);
