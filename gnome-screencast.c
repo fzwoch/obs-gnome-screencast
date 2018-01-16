@@ -39,6 +39,7 @@ typedef struct {
 	obs_source_t* source;
 	gint64 frame_count;
 	cursor_mode_t cursor_mode;
+	GdkRectangle rect;
 } gnome_screencast_data_t;
 
 static GstFlowReturn gnome_screencast_new_sample(GstAppSink* appsink, gpointer user_data)
@@ -48,11 +49,6 @@ static GstFlowReturn gnome_screencast_new_sample(GstAppSink* appsink, gpointer u
 	GstMapInfo info;
 	GstSample* sample = gst_app_sink_pull_sample(appsink);
 
-	GstCaps* caps = gst_sample_get_caps(sample);
-	GstStructure* structure = gst_caps_get_structure(caps, 0);
-	gst_structure_get_int(structure, "width", (gint*)&frame.width);
-	gst_structure_get_int(structure, "height", (gint*)&frame.height);
-
 	GstBuffer* buffer = gst_sample_get_buffer(sample);
 	gst_buffer_map(buffer, &info, GST_MAP_READ);
 
@@ -60,6 +56,8 @@ static GstFlowReturn gnome_screencast_new_sample(GstAppSink* appsink, gpointer u
 	{
 	}
 
+	frame.width = data->rect.width;
+	frame.height = data->rect.height;
 	frame.format = VIDEO_FORMAT_BGRA;
 	frame.timestamp = data->frame_count++;
 	frame.full_range = true;
@@ -89,8 +87,7 @@ static void gnome_screencast_start(gnome_screencast_data_t* data, obs_data_t* se
 		screen = 0;
 	}
 
-	GdkRectangle rect;
-	gdk_monitor_get_geometry(gdk_display_get_monitor(gdk_display_get_default(), screen), &rect);
+	gdk_monitor_get_geometry(gdk_display_get_monitor(gdk_display_get_default(), screen), &data->rect);
 
 	data->cursor_mode = obs_data_get_int(settings, "show_cursor");
 
@@ -98,10 +95,10 @@ static void gnome_screencast_start(gnome_screencast_data_t* data, obs_data_t* se
 	gchar* variant = g_strdup_printf("{'draw-cursor' : <%s>, 'framerate' : <%lld>, 'pipeline' : <'tee name=tee ! queue ! shmsink socket-path=%s wait-for-connection=false sync=false tee. ! queue'>}", data->cursor_mode == CURSOR_MODE_GNOME ? "true" : "false", obs_data_get_int(settings, "frame_rate"), tmp_socket);
 
 	GVariantBuilder* builder = g_variant_builder_new(G_VARIANT_TYPE_TUPLE);
-	g_variant_builder_add_value(builder, g_variant_new_int32(rect.x));
-	g_variant_builder_add_value(builder, g_variant_new_int32(rect.y));
-	g_variant_builder_add_value(builder, g_variant_new_int32(rect.width));
-	g_variant_builder_add_value(builder, g_variant_new_int32(rect.height));
+	g_variant_builder_add_value(builder, g_variant_new_int32(data->rect.x));
+	g_variant_builder_add_value(builder, g_variant_new_int32(data->rect.y));
+	g_variant_builder_add_value(builder, g_variant_new_int32(data->rect.width));
+	g_variant_builder_add_value(builder, g_variant_new_int32(data->rect.height));
 	g_variant_builder_add_value(builder, g_variant_new_string("/dev/null"));
 	g_variant_builder_add_value(builder, g_variant_new_parsed(variant));
 	g_free(variant);
@@ -162,7 +159,7 @@ static void gnome_screencast_start(gnome_screencast_data_t* data, obs_data_t* se
 		return;
 	}
 
-	gchar* pipe = g_strdup_printf("shmsrc socket-path=%s ! rawvideoparse format=bgrx width=%d height=%d ! appsink max-buffers=10 drop=true name=appsink sync=false", tmp_socket, rect.width, rect.height);
+	gchar* pipe = g_strdup_printf("shmsrc socket-path=%s ! rawvideoparse format=bgrx width=%d height=%d ! appsink max-buffers=10 drop=true name=appsink sync=false", tmp_socket, data->rect.width, data->rect.height);
 	data->pipe = gst_parse_launch(pipe, &err);
 	g_free(pipe);
 	g_free(tmp_socket);
