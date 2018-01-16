@@ -303,19 +303,19 @@ static void update(void* data, obs_data_t* settings)
 
 bool obs_module_load(void)
 {
-	struct obs_source_info info = {};
+	struct obs_source_info info = {
+		.id = "gnome-screencast-source",
+		.type = OBS_SOURCE_TYPE_INPUT,
+		.output_flags = OBS_SOURCE_ASYNC_VIDEO | OBS_SOURCE_DO_NOT_DUPLICATE,
 
-	info.id = "gnome-screencast-source";
-	info.type = OBS_SOURCE_TYPE_INPUT;
-	info.output_flags = OBS_SOURCE_ASYNC_VIDEO | OBS_SOURCE_DO_NOT_DUPLICATE;
+		.get_name = get_name,
+		.create = create,
+		.destroy = destroy,
 
-	info.get_name = get_name;
-	info.create = create;
-	info.destroy = destroy;
-
-	info.get_defaults = get_defaults;
-	info.get_properties = get_properties;
-	info.update = update;
+		.get_defaults = get_defaults,
+		.get_properties = get_properties,
+		.update = update,
+	};
 
 	obs_register_source(&info);
 
