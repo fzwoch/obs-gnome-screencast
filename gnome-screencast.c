@@ -88,7 +88,7 @@ static void start(data_t* data, obs_data_t* settings)
 	GError* err = NULL;
 
 	gint screen = obs_data_get_int(settings, "screen");
-	if (screen > gdk_display_get_n_monitors(gdk_display_get_default()) - 1)
+	if (screen >= gdk_display_get_n_monitors(gdk_display_get_default()))
 	{
 		screen = 0;
 	}
