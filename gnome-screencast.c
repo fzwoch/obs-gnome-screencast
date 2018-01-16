@@ -262,21 +262,24 @@ static void gnome_screencast_get_defaults(obs_data_t* settings)
 static obs_properties_t* gnome_screencat_get_properties(void* data)
 {
 	obs_properties_t* props = obs_properties_create();
+	obs_property_t* prop;
 
-	obs_property_t* screens = obs_properties_add_list(props, "screen", "Screen", OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
-	obs_property_t* cursors = obs_properties_add_list(props, "show_cursor", "Capture cursor", OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
-	obs_properties_add_int(props, "frame_rate", "Frame rate", 1, 200, 1);
-
-	obs_property_list_add_int(cursors, "Off", CURSOR_MODE_OFF);
-	obs_property_list_add_int(cursors, "GNOME Screen Cast", CURSOR_MODE_GNOME);
-	obs_property_list_add_int(cursors, "Plugin", CURSOR_MODE_PLUGIN);
+	prop = obs_properties_add_list(props, "screen", "Screen", OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
 
 	for (int i = 0; i < gdk_display_get_n_monitors(gdk_display_get_default()); i++)
 	{
 		gchar* name = g_strdup_printf("Screen #%d", i);
-		obs_property_list_add_int(screens, name, i);
+		obs_property_list_add_int(prop, name, i);
 		g_free(name);
 	}
+
+	prop = obs_properties_add_list(props, "show_cursor", "Capture cursor", OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
+
+	obs_property_list_add_int(prop, "Off", CURSOR_MODE_OFF);
+	obs_property_list_add_int(prop, "GNOME Screen Cast", CURSOR_MODE_GNOME);
+	obs_property_list_add_int(prop, "Plugin", CURSOR_MODE_PLUGIN);
+
+	obs_properties_add_int(props, "frame_rate", "Frame rate", 1, 200, 1);
 
 	return props;
 }
