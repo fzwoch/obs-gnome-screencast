@@ -40,15 +40,15 @@ typedef struct {
 	gint64 frame_count;
 	cursor_mode_t cursor_mode;
 	GdkRectangle rect;
-} gnome_screencast_data_t;
+} data_t;
 
-static void gnome_screencast_draw_cursor(guint8* ptr, gnome_screencast_data_t* data)
+static void draw_cursor(guint8* ptr, data_t* data)
 {
 }
 
-static GstFlowReturn gnome_screencast_new_sample(GstAppSink* appsink, gpointer user_data)
+static GstFlowReturn new_sample(GstAppSink* appsink, gpointer user_data)
 {
-	gnome_screencast_data_t* data = user_data;
+	data_t* data = user_data;
 	struct obs_source_frame frame = {};
 	GstMapInfo info;
 	GstSample* sample = gst_app_sink_pull_sample(appsink);
@@ -58,7 +58,7 @@ static GstFlowReturn gnome_screencast_new_sample(GstAppSink* appsink, gpointer u
 
 	if (data->cursor_mode == CURSOR_MODE_PLUGIN)
 	{
-		gnome_screencast_draw_cursor(info.data, data);
+		draw_cursor(info.data, data);
 	}
 
 	frame.width = data->rect.width;
@@ -77,12 +77,12 @@ static GstFlowReturn gnome_screencast_new_sample(GstAppSink* appsink, gpointer u
 	return GST_FLOW_OK;
 }
 
-static const char* gnome_screencast_get_name(void* type_data)
+static const char* get_name(void* type_data)
 {
 	return "GNOME Screen Cast";
 }
 
-static void gnome_screencast_start(gnome_screencast_data_t* data, obs_data_t* settings)
+static void start(data_t* data, obs_data_t* settings)
 {
 	GError* err = NULL;
 
@@ -172,7 +172,7 @@ static void gnome_screencast_start(gnome_screencast_data_t* data, obs_data_t* se
 	GstAppSinkCallbacks cbs = {
 		NULL,
 		NULL,
-		gnome_screencast_new_sample
+		new_sample
 	};
 
 	GstElement* appsink = gst_bin_get_by_name(GST_BIN(data->pipe), "appsink");
@@ -184,18 +184,18 @@ static void gnome_screencast_start(gnome_screencast_data_t* data, obs_data_t* se
 	gst_element_set_state(data->pipe, GST_STATE_PLAYING);
 }
 
-static void* gnome_screencast_create(obs_data_t* settings, obs_source_t* source)
+static void* create(obs_data_t* settings, obs_source_t* source)
 {
-	gnome_screencast_data_t* data = g_new0(gnome_screencast_data_t, 1);
+	data_t* data = g_new0(data_t, 1);
 
 	data->source = source;
 
-	gnome_screencast_start(data, settings);
+	start(data, settings);
 
 	return data;
 }
 
-static void gnome_screencast_stop(gnome_screencast_data_t* data)
+static void stop(data_t* data)
 {
 	GError* err = NULL;
 
@@ -248,13 +248,13 @@ static void gnome_screencast_stop(gnome_screencast_data_t* data)
 	data->connection = NULL;
 }
 
-static void gnome_screencast_destroy(void* data)
+static void destroy(void* data)
 {
-	gnome_screencast_stop(data);
+	stop(data);
 	g_free(data);
 }
 
-static void gnome_screencast_get_defaults(obs_data_t* settings)
+static void get_defaults(obs_data_t* settings)
 {
 	obs_data_set_default_int(settings, "screen", 0);
 	obs_data_set_default_int(settings, "show_cursor", CURSOR_MODE_GNOME);
@@ -286,10 +286,10 @@ static obs_properties_t* gnome_screencat_get_properties(void* data)
 	return props;
 }
 
-static void gnome_screencast_update(void* data, obs_data_t* settings)
+static void update(void* data, obs_data_t* settings)
 {
-	gnome_screencast_stop(data);
-	gnome_screencast_start(data, settings);
+	stop(data);
+	start(data, settings);
 }
 
 bool obs_module_load(void)
@@ -300,13 +300,13 @@ bool obs_module_load(void)
 	info.type = OBS_SOURCE_TYPE_INPUT;
 	info.output_flags = OBS_SOURCE_ASYNC_VIDEO | OBS_SOURCE_DO_NOT_DUPLICATE;
 
-	info.get_name = gnome_screencast_get_name;
-	info.create = gnome_screencast_create;
-	info.destroy = gnome_screencast_destroy;
+	info.get_name = get_name;
+	info.create = create;
+	info.destroy = destroy;
 
-	info.get_defaults = gnome_screencast_get_defaults;
+	info.get_defaults = get_defaults;
 	info.get_properties = gnome_screencat_get_properties;
-	info.update = gnome_screencast_update;
+	info.update = update;
 
 	obs_register_source(&info);
 
