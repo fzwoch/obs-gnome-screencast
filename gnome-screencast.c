@@ -23,7 +23,6 @@
 #include <gst/gst.h>
 #include <gst/app/app.h>
 #include <gdk/gdk.h>
-#include <meta/meta-cursor-tracker.h>
 
 OBS_DECLARE_MODULE()
 
@@ -44,6 +43,31 @@ typedef struct {
 
 static void draw_cursor(guint8* ptr, data_t* data)
 {
+	gdouble hot_x, hot_y;
+	int pos_x, pos_y;
+
+	gdk_device_get_position(gdk_seat_get_pointer(gdk_display_get_default_seat(gdk_display_get_default())), NULL, &pos_x, &pos_y);
+
+	GdkCursor* cursor = gdk_cursor_new_from_name(gdk_display_get_default(), "default");
+
+	cairo_surface_t* cursor_image = gdk_cursor_get_surface(cursor, &hot_x, &hot_y);
+
+	cairo_surface_t* surface = cairo_image_surface_create_for_data(
+		ptr, CAIRO_FORMAT_ARGB32, data->rect.width, data->rect.height, data->rect.width * 4);
+
+	cairo_t* cr = cairo_create(surface);
+  cairo_set_source_surface(
+		cr, cursor_image,
+    pos_x - hot_x - data->rect.x,
+    pos_y - hot_y - data->rect.y);
+
+	cairo_paint(cr);
+
+	cairo_destroy(cr);
+	cairo_surface_destroy(surface);
+	cairo_surface_destroy(cursor_image);
+
+	g_object_unref(cursor);
 }
 
 static GstFlowReturn new_sample(GstAppSink* appsink, gpointer user_data)
