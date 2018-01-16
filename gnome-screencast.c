@@ -42,6 +42,10 @@ typedef struct {
 	GdkRectangle rect;
 } gnome_screencast_data_t;
 
+static void gnome_screencast_draw_cursor(guint8* ptr, gnome_screencast_data_t* data)
+{
+}
+
 static GstFlowReturn gnome_screencast_new_sample(GstAppSink* appsink, gpointer user_data)
 {
 	gnome_screencast_data_t* data = user_data;
@@ -54,6 +58,7 @@ static GstFlowReturn gnome_screencast_new_sample(GstAppSink* appsink, gpointer u
 
 	if (data->cursor_mode == CURSOR_MODE_PLUGIN)
 	{
+		gnome_screencast_draw_cursor(info.data, data);
 	}
 
 	frame.width = data->rect.width;
