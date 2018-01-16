@@ -28,7 +28,9 @@ shared_library('gnome-screencast',
     dependency('gio-2.0'),
     dependency('gstreamer-1.0'),
     dependency('gstreamer-app-1.0'),
-    dependency('gdk-3.0')
+    dependency('gdk-3.0'),
+    dependency('libmutter-1')
   ],
-  link_args : '-static-libgcc'
+  link_args : '-static-libgcc',
+  build_rpath : '/usr/lib/x86_64-linux-gnu/mutter'
 )
