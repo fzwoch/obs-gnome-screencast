@@ -31,14 +31,14 @@ typedef enum {
 	CURSOR_MODE_OFF,
 	CURSOR_MODE_GNOME,
 	CURSOR_MODE_PLUGIN
-} cursor_mode_e;
+} cursor_mode_t;
 
 typedef struct {
 	GDBusConnection* connection;
 	GstElement* pipe;
 	obs_source_t* source;
 	gint64 frame_count;
-	cursor_mode_e cursor_mode;
+	cursor_mode_t cursor_mode;
 } gnome_screencast_data_t;
 
 static GstFlowReturn gnome_screencast_new_sample(GstAppSink* appsink, gpointer user_data)
