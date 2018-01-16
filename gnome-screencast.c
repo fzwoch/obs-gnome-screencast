@@ -23,21 +23,23 @@
 #include <gst/gst.h>
 #include <gst/app/app.h>
 #include <gdk/gdk.h>
+#include <meta/meta-cursor-tracker.h>
 
 OBS_DECLARE_MODULE()
+
+typedef enum {
+	CURSOR_MODE_OFF,
+	CURSOR_MODE_GNOME,
+	CURSOR_MODE_PLUGIN
+} cursor_mode_e;
 
 typedef struct {
 	GDBusConnection* connection;
 	GstElement* pipe;
 	obs_source_t* source;
 	gint64 frame_count;
+	cursor_mode_e cursor_mode;
 } gnome_screencast_data_t;
-
-enum cursor_mode_e {
-	CURSOR_MODE_OFF = 0,
-	CURSOR_MODE_GNOME,
-	CURSOR_MODE_PLUGIN
-};
 
 static GstFlowReturn gnome_screencast_new_sample(GstAppSink* appsink, gpointer user_data)
 {
@@ -53,6 +55,10 @@ static GstFlowReturn gnome_screencast_new_sample(GstAppSink* appsink, gpointer u
 
 	GstBuffer* buffer = gst_sample_get_buffer(sample);
 	gst_buffer_map(buffer, &info, GST_MAP_READ);
+
+	if (data->cursor_mode == CURSOR_MODE_PLUGIN)
+	{
+	}
 
 	frame.format = VIDEO_FORMAT_BGRA;
 	frame.timestamp = data->frame_count++;
@@ -86,8 +92,10 @@ static void gnome_screencast_start(gnome_screencast_data_t* data, obs_data_t* se
 	GdkRectangle rect;
 	gdk_monitor_get_geometry(gdk_display_get_monitor(gdk_display_get_default(), screen), &rect);
 
+	data->cursor_mode = obs_data_get_int(settings, "show_cursor");
+
 	gchar* tmp_socket = g_strdup_printf("/tmp/obs-gnome-screencast-%d", g_random_int_range(0,10000000)); // FIXME: make me really unique
-	gchar* variant = g_strdup_printf("{'draw-cursor' : <%s>, 'framerate' : <%lld>, 'pipeline' : <'tee name=tee ! queue ! shmsink socket-path=%s wait-for-connection=false sync=false tee. ! queue'>}", obs_data_get_int(settings, "show_cursor") == CURSOR_MODE_GNOME ? "true" : "false", obs_data_get_int(settings, "frame_rate"), tmp_socket);
+	gchar* variant = g_strdup_printf("{'draw-cursor' : <%s>, 'framerate' : <%lld>, 'pipeline' : <'tee name=tee ! queue ! shmsink socket-path=%s wait-for-connection=false sync=false tee. ! queue'>}", data->cursor_mode == CURSOR_MODE_GNOME ? "true" : "false", obs_data_get_int(settings, "frame_rate"), tmp_socket);
 
 	GVariantBuilder* builder = g_variant_builder_new(G_VARIANT_TYPE_TUPLE);
 	g_variant_builder_add_value(builder, g_variant_new_int32(rect.x));
