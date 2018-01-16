@@ -49,11 +49,10 @@ static void draw_cursor(guint8* ptr, data_t* data)
 static GstFlowReturn new_sample(GstAppSink* appsink, gpointer user_data)
 {
 	data_t* data = user_data;
-	struct obs_source_frame frame = {};
-	GstMapInfo info;
 	GstSample* sample = gst_app_sink_pull_sample(appsink);
-
 	GstBuffer* buffer = gst_sample_get_buffer(sample);
+	GstMapInfo info;
+
 	gst_buffer_map(buffer, &info, GST_MAP_READ);
 
 	if (data->cursor_mode == CURSOR_MODE_PLUGIN)
@@ -61,13 +60,15 @@ static GstFlowReturn new_sample(GstAppSink* appsink, gpointer user_data)
 		draw_cursor(info.data, data);
 	}
 
-	frame.width = data->rect.width;
-	frame.height = data->rect.height;
-	frame.format = VIDEO_FORMAT_BGRA;
-	frame.timestamp = data->frame_count++;
-	frame.full_range = true;
-	frame.linesize[0] = frame.width * 4;
-	frame.data[0] = info.data;
+	struct obs_source_frame frame = {
+		.width = data->rect.width,
+		.height = data->rect.height,
+		.format = VIDEO_FORMAT_BGRA,
+		.timestamp = data->frame_count++,
+		.full_range = true,
+		.linesize[0] = data->rect.width * 4,
+		.data[0] = info.data,
+	};
 
 	obs_source_output_video(data->source, &frame);
 
