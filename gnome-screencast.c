@@ -114,8 +114,8 @@ static void start(data_t* data, obs_data_t* settings)
 	if (err != NULL)
 	{
 		blog(LOG_ERROR, "Cannot connect to DBus: %s", err->message);
-
 		g_error_free(err);
+
 		g_variant_builder_unref(builder);
 
 		return;
@@ -139,7 +139,6 @@ static void start(data_t* data, obs_data_t* settings)
 	if (err != NULL)
 	{
 		blog(LOG_ERROR, "Cannot start GNOME Screen Cast - DBus call failed: %s", err->message);
-
 		g_error_free(err);
 
 		g_object_unref(data->connection);
@@ -169,7 +168,6 @@ static void start(data_t* data, obs_data_t* settings)
 	if (err != NULL)
 	{
 		blog(LOG_ERROR, "Cannot start GStreamer: %s", err->message);
-
 		g_error_free(err);
 
 		g_object_unref(data->connection);
