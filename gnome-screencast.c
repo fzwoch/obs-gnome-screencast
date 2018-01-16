@@ -33,6 +33,12 @@ typedef struct {
 	gint64 frame_count;
 } gnome_screencast_data_t;
 
+enum cursor_mode_e {
+	CURSOR_MODE_OFF = 0,
+	CURSOR_MODE_GNOME,
+	CURSOR_MODE_PLUGIN
+};
+
 static GstFlowReturn gnome_screencast_new_sample(GstAppSink* appsink, gpointer user_data)
 {
 	gnome_screencast_data_t* data = user_data;
@@ -81,7 +87,7 @@ static void gnome_screencast_start(gnome_screencast_data_t* data, obs_data_t* se
 	gdk_monitor_get_geometry(gdk_display_get_monitor(gdk_display_get_default(), screen), &rect);
 
 	gchar* tmp_socket = g_strdup_printf("/tmp/obs-gnome-screencast-%d", g_random_int_range(0,10000000)); // FIXME: make me really unique
-	gchar* variant = g_strdup_printf("{'draw-cursor' : <%s>, 'framerate' : <%lld>, 'pipeline' : <'tee name=tee ! queue ! shmsink socket-path=%s wait-for-connection=false sync=false tee. ! queue'>}", obs_data_get_bool(settings, "show_cursor") ? "true" : "false", obs_data_get_int(settings, "frame_rate"), tmp_socket);
+	gchar* variant = g_strdup_printf("{'draw-cursor' : <%s>, 'framerate' : <%lld>, 'pipeline' : <'tee name=tee ! queue ! shmsink socket-path=%s wait-for-connection=false sync=false tee. ! queue'>}", obs_data_get_int(settings, "show_cursor") == CURSOR_MODE_GNOME ? "true" : "false", obs_data_get_int(settings, "frame_rate"), tmp_socket);
 
 	GVariantBuilder* builder = g_variant_builder_new(G_VARIANT_TYPE_TUPLE);
 	g_variant_builder_add_value(builder, g_variant_new_int32(rect.x));
@@ -241,7 +247,7 @@ static void gnome_screencast_destroy(void* data)
 static void gnome_screencast_get_defaults(obs_data_t* settings)
 {
 	obs_data_set_default_int(settings, "screen", 0);
-	obs_data_set_default_bool(settings, "show_cursor", true);
+	obs_data_set_default_int(settings, "show_cursor", CURSOR_MODE_GNOME);
 	obs_data_set_default_int(settings, "frame_rate", 60);
 }
 
@@ -250,8 +256,12 @@ static obs_properties_t* gnome_screencat_get_properties(void* data)
 	obs_properties_t* props = obs_properties_create();
 
 	obs_property_t* screens = obs_properties_add_list(props, "screen", "Screen", OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
-	obs_properties_add_bool(props, "show_cursor", "Capture cursor");
+	obs_property_t* cursors = obs_properties_add_list(props, "show_cursor", "Capture cursor", OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
 	obs_properties_add_int(props, "frame_rate", "Frame rate", 1, 200, 1);
+
+	obs_property_list_add_int(cursors, "Off", CURSOR_MODE_OFF);
+	obs_property_list_add_int(cursors, "GNOME Screen Cast", CURSOR_MODE_GNOME);
+	obs_property_list_add_int(cursors, "Plugin", CURSOR_MODE_PLUGIN);
 
 	for (int i = 0; i < gdk_display_get_n_monitors(gdk_display_get_default()); i++)
 	{
