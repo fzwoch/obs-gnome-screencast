@@ -96,8 +96,11 @@ static void start(data_t* data, obs_data_t* settings)
 
 	data->cursor_mode = obs_data_get_int(settings, "show_cursor");
 
-	gchar* tmp_socket = g_strdup_printf("/tmp/obs-gnome-screencast-%d", g_random_int_range(0,10000000)); // FIXME: make me really unique
-	gchar* variant = g_strdup_printf("{'draw-cursor' : <%s>, 'framerate' : <%lld>, 'pipeline' : <'tee name=tee ! queue ! shmsink socket-path=%s wait-for-connection=false sync=false tee. ! queue'>}", data->cursor_mode == CURSOR_MODE_GNOME ? "true" : "false", obs_data_get_int(settings, "frame_rate"), tmp_socket);
+	gchar tmp_socket[64];
+	gchar variant_string[1024];
+
+	g_snprintf(tmp_socket, sizeof(tmp_socket), "/tmp/obs-gnome-screencast-%d", g_random_int_range(0,10000000)); // FIXME: make me really unique
+	g_snprintf(variant_string, sizeof(variant_string), "{'draw-cursor' : <%s>, 'framerate' : <%lld>, 'pipeline' : <'tee name=tee ! queue ! shmsink socket-path=%s wait-for-connection=false sync=false tee. ! queue'>}", data->cursor_mode == CURSOR_MODE_GNOME ? "true" : "false", obs_data_get_int(settings, "frame_rate"), tmp_socket);
 
 	GVariantBuilder* builder = g_variant_builder_new(G_VARIANT_TYPE_TUPLE);
 	g_variant_builder_add_value(builder, g_variant_new_int32(data->rect.x));
@@ -105,8 +108,7 @@ static void start(data_t* data, obs_data_t* settings)
 	g_variant_builder_add_value(builder, g_variant_new_int32(data->rect.width));
 	g_variant_builder_add_value(builder, g_variant_new_int32(data->rect.height));
 	g_variant_builder_add_value(builder, g_variant_new_string("/dev/null"));
-	g_variant_builder_add_value(builder, g_variant_new_parsed(variant));
-	g_free(variant);
+	g_variant_builder_add_value(builder, g_variant_new_parsed(variant_string));
 
 	data->connection = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &err);
 	if (err != NULL)
@@ -115,7 +117,6 @@ static void start(data_t* data, obs_data_t* settings)
 
 		g_error_free(err);
 		g_variant_builder_unref(builder);
-		g_free(tmp_socket);
 
 		return;
 	}
@@ -140,7 +141,6 @@ static void start(data_t* data, obs_data_t* settings)
 		blog(LOG_ERROR, "Cannot start GNOME Screen Cast - DBus call failed: %s", err->message);
 
 		g_error_free(err);
-		g_free(tmp_socket);
 
 		g_object_unref(data->connection);
 		data->connection = NULL;
@@ -156,18 +156,16 @@ static void start(data_t* data, obs_data_t* settings)
 	{
 		blog(LOG_ERROR, "Cannot start GNOME Screen Cast");
 
-		g_free(tmp_socket);
-
 		g_object_unref(data->connection);
 		data->connection = NULL;
 
 		return;
 	}
 
-	gchar* pipe = g_strdup_printf("shmsrc socket-path=%s ! rawvideoparse format=bgrx width=%d height=%d ! appsink max-buffers=10 drop=true name=appsink sync=false", tmp_socket, data->rect.width, data->rect.height);
+	gchar pipe[1024];
+	g_snprintf(pipe, sizeof(pipe), "shmsrc socket-path=%s ! rawvideoparse format=bgrx width=%d height=%d ! appsink max-buffers=10 drop=true name=appsink sync=false", tmp_socket, data->rect.width, data->rect.height);
+
 	data->pipe = gst_parse_launch(pipe, &err);
-	g_free(pipe);
-	g_free(tmp_socket);
 
 	GstAppSinkCallbacks cbs = {
 		NULL,
@@ -270,9 +268,9 @@ static obs_properties_t* get_properties(void* data)
 
 	for (int i = 0; i < gdk_display_get_n_monitors(gdk_display_get_default()); i++)
 	{
-		gchar* name = g_strdup_printf("Screen #%d", i);
+		gchar name[32];
+		g_snprintf(name, sizeof(name), "Screen #%d", i);
 		obs_property_list_add_int(prop, name, i);
-		g_free(name);
 	}
 
 	prop = obs_properties_add_list(props, "show_cursor", "Capture cursor", OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
