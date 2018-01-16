@@ -261,7 +261,7 @@ static void get_defaults(obs_data_t* settings)
 	obs_data_set_default_int(settings, "frame_rate", 60);
 }
 
-static obs_properties_t* gnome_screencat_get_properties(void* data)
+static obs_properties_t* get_properties(void* data)
 {
 	obs_properties_t* props = obs_properties_create();
 	obs_property_t* prop;
@@ -305,7 +305,7 @@ bool obs_module_load(void)
 	info.destroy = destroy;
 
 	info.get_defaults = get_defaults;
-	info.get_properties = gnome_screencat_get_properties;
+	info.get_properties = get_properties;
 	info.update = update;
 
 	obs_register_source(&info);
