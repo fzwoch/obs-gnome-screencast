@@ -166,6 +166,17 @@ static void start(data_t* data, obs_data_t* settings)
 	g_snprintf(pipe, sizeof(pipe), "shmsrc socket-path=%s ! rawvideoparse format=bgrx width=%d height=%d ! appsink max-buffers=10 drop=true name=appsink sync=false", tmp_socket, data->rect.width, data->rect.height);
 
 	data->pipe = gst_parse_launch(pipe, &err);
+	if (err != NULL)
+	{
+		blog(LOG_ERROR, "Cannot start GStreamer: %s", err->message);
+
+		g_error_free(err);
+
+		g_object_unref(data->connection);
+		data->connection = NULL;
+
+		return;
+	}
 
 	GstAppSinkCallbacks cbs = {
 		NULL,
