@@ -26,49 +26,13 @@
 
 OBS_DECLARE_MODULE()
 
-typedef enum {
-	CURSOR_MODE_OFF,
-	CURSOR_MODE_GNOME,
-	CURSOR_MODE_PLUGIN
-} cursor_mode_t;
-
 typedef struct {
 	GDBusConnection* connection;
 	GstElement* pipe;
 	obs_source_t* source;
 	gint64 frame_count;
-	cursor_mode_t cursor_mode;
 	GdkRectangle rect;
 } data_t;
-
-static void draw_cursor(guint8* ptr, data_t* data)
-{
-	gdouble hot_x, hot_y;
-	int pos_x, pos_y;
-
-	gdk_device_get_position(gdk_seat_get_pointer(gdk_display_get_default_seat(gdk_display_get_default())), NULL, &pos_x, &pos_y);
-
-	GdkCursor* cursor = gdk_cursor_new_from_name(gdk_display_get_default(), "default");
-
-	cairo_surface_t* cursor_image = gdk_cursor_get_surface(cursor, &hot_x, &hot_y);
-
-	cairo_surface_t* surface = cairo_image_surface_create_for_data(
-		ptr, CAIRO_FORMAT_ARGB32, data->rect.width, data->rect.height, data->rect.width * 4);
-
-	cairo_t* cr = cairo_create(surface);
-  cairo_set_source_surface(
-		cr, cursor_image,
-    pos_x - hot_x - data->rect.x,
-    pos_y - hot_y - data->rect.y);
-
-	cairo_paint(cr);
-
-	cairo_destroy(cr);
-	cairo_surface_destroy(surface);
-	cairo_surface_destroy(cursor_image);
-
-	g_object_unref(cursor);
-}
 
 static GstFlowReturn new_sample(GstAppSink* appsink, gpointer user_data)
 {
@@ -78,11 +42,6 @@ static GstFlowReturn new_sample(GstAppSink* appsink, gpointer user_data)
 	GstMapInfo info;
 
 	gst_buffer_map(buffer, &info, GST_MAP_READ);
-
-	if (data->cursor_mode == CURSOR_MODE_PLUGIN)
-	{
-		draw_cursor(info.data, data);
-	}
 
 	struct obs_source_frame frame = {
 		.width = data->rect.width,
@@ -119,13 +78,11 @@ static void start(data_t* data, obs_data_t* settings)
 
 	gdk_monitor_get_geometry(gdk_display_get_monitor(gdk_display_get_default(), screen), &data->rect);
 
-	data->cursor_mode = obs_data_get_int(settings, "show_cursor");
-
 	gchar tmp_socket[64];
 	gchar variant_string[1024];
 
 	g_snprintf(tmp_socket, sizeof(tmp_socket), "/tmp/obs-gnome-screencast-%d", g_random_int_range(0,10000000)); // FIXME: make me really unique
-	g_snprintf(variant_string, sizeof(variant_string), "{'draw-cursor' : <%s>, 'framerate' : <%lld>, 'pipeline' : <'tee name=tee ! queue ! shmsink socket-path=%s wait-for-connection=false sync=false tee. ! queue'>}", data->cursor_mode == CURSOR_MODE_GNOME ? "true" : "false", obs_data_get_int(settings, "frame_rate"), tmp_socket);
+	g_snprintf(variant_string, sizeof(variant_string), "{'draw-cursor' : <%s>, 'framerate' : <%lld>, 'pipeline' : <'tee name=tee ! queue ! shmsink socket-path=%s wait-for-connection=false sync=false tee. ! queue'>}", obs_data_get_bool(settings, "show_cursor") ? "true" : "false", obs_data_get_int(settings, "frame_rate"), tmp_socket);
 
 	GVariantBuilder* builder = g_variant_builder_new(G_VARIANT_TYPE_TUPLE);
 	g_variant_builder_add_value(builder, g_variant_new_int32(data->rect.x));
@@ -289,7 +246,7 @@ static void destroy(void* data)
 static void get_defaults(obs_data_t* settings)
 {
 	obs_data_set_default_int(settings, "screen", 0);
-	obs_data_set_default_int(settings, "show_cursor", CURSOR_MODE_GNOME);
+	obs_data_set_default_bool(settings, "show_cursor", true);
 	obs_data_set_default_int(settings, "frame_rate", 60);
 }
 
@@ -307,11 +264,7 @@ static obs_properties_t* get_properties(void* data)
 		obs_property_list_add_int(prop, name, i);
 	}
 
-	prop = obs_properties_add_list(props, "show_cursor", "Capture cursor", OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
-
-	obs_property_list_add_int(prop, "Off", CURSOR_MODE_OFF);
-	obs_property_list_add_int(prop, "GNOME Screen Cast", CURSOR_MODE_GNOME);
-	obs_property_list_add_int(prop, "Plugin", CURSOR_MODE_PLUGIN);
+	prop = obs_properties_add_bool(props, "show_cursor", "Capture cursor");
 
 	obs_properties_add_int(props, "frame_rate", "Frame rate", 1, 200, 1);
 
