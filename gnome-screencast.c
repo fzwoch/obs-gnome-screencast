@@ -264,8 +264,7 @@ static obs_properties_t* get_properties(void* data)
 		obs_property_list_add_int(prop, name, i);
 	}
 
-	prop = obs_properties_add_bool(props, "show_cursor", "Capture cursor");
-
+	obs_properties_add_bool(props, "show_cursor", "Capture cursor");
 	obs_properties_add_int(props, "frame_rate", "Frame rate", 1, 200, 1);
 
 	return props;
