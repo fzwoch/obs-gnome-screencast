@@ -111,7 +111,8 @@ static void start(data_t* data, obs_data_t* settings)
 	g_variant_builder_add_value(builder, g_variant_new_string("/dev/null"));
 	g_variant_builder_add_value(builder, g_variant_new_parsed(variant_string));
 
-	GVariant* res = g_dbus_proxy_call_sync(proxy,
+	GVariant* res = g_dbus_proxy_call_sync(
+		proxy,
 		"ScreencastArea",
 		g_variant_builder_end(builder),
 		G_DBUS_CALL_FLAGS_NONE,
@@ -230,7 +231,8 @@ static void stop(data_t* data)
 		return;
 	}
 
-	GVariant* res = g_dbus_proxy_call_sync(proxy,
+	GVariant* res = g_dbus_proxy_call_sync(
+		proxy,
 		"StopScreencast",
 		NULL,
 		G_DBUS_CALL_FLAGS_NONE,
