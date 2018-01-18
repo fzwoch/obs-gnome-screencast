@@ -27,7 +27,6 @@
 OBS_DECLARE_MODULE()
 
 typedef struct {
-	GDBusConnection* connection;
 	GstElement* pipe;
 	obs_source_t* source;
 	gint64 frame_count;
@@ -92,7 +91,7 @@ static void start(data_t* data, obs_data_t* settings)
 	g_variant_builder_add_value(builder, g_variant_new_string("/dev/null"));
 	g_variant_builder_add_value(builder, g_variant_new_parsed(variant_string));
 
-	data->connection = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &err);
+	GDBusConnection* connection = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &err);
 	if (err != NULL)
 	{
 		blog(LOG_ERROR, "Cannot connect to DBus: %s", err->message);
@@ -104,7 +103,7 @@ static void start(data_t* data, obs_data_t* settings)
 	}
 
 	GVariant* res = g_dbus_connection_call_sync(
-		data->connection,
+		connection,
 		"org.gnome.Shell.Screencast",
 		"/org/gnome/Shell/Screencast",
 		"org.gnome.Shell.Screencast",
@@ -117,14 +116,12 @@ static void start(data_t* data, obs_data_t* settings)
 		&err);
 
 	g_variant_builder_unref(builder);
+	g_object_unref(connection);
 
 	if (err != NULL)
 	{
 		blog(LOG_ERROR, "Cannot start GNOME Screen Cast - DBus call failed: %s", err->message);
 		g_error_free(err);
-
-		g_object_unref(data->connection);
-		data->connection = NULL;
 
 		return;
 	}
@@ -137,9 +134,6 @@ static void start(data_t* data, obs_data_t* settings)
 	{
 		blog(LOG_ERROR, "Cannot start GNOME Screen Cast");
 
-		g_object_unref(data->connection);
-		data->connection = NULL;
-
 		return;
 	}
 
@@ -151,9 +145,6 @@ static void start(data_t* data, obs_data_t* settings)
 	{
 		blog(LOG_ERROR, "Cannot start GStreamer: %s", err->message);
 		g_error_free(err);
-
-		g_object_unref(data->connection);
-		data->connection = NULL;
 
 		return;
 	}
@@ -188,20 +179,26 @@ static void stop(data_t* data)
 {
 	GError* err = NULL;
 
-	if (data->pipe != NULL)
-	{
-		gst_element_set_state(data->pipe, GST_STATE_NULL);
-		gst_object_unref(data->pipe);
-		data->pipe = NULL;
-	}
-
-	if (data->connection == NULL)
+	if (data->pipe == NULL)
 	{
 		return;
 	}
 
+	gst_element_set_state(data->pipe, GST_STATE_NULL);
+	gst_object_unref(data->pipe);
+	data->pipe = NULL;
+
+	GDBusConnection* connection = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &err);
+	if (err != NULL)
+	{
+		blog(LOG_ERROR, "Cannot connect to DBus: %s", err->message);
+		g_error_free(err);
+
+		return;
+	}
+
 	GVariant* res = g_dbus_connection_call_sync(
-		data->connection,
+		connection,
 		"org.gnome.Shell.Screencast",
 		"/org/gnome/Shell/Screencast",
 		"org.gnome.Shell.Screencast",
@@ -213,13 +210,12 @@ static void stop(data_t* data)
 		NULL,
 		&err);
 
+	g_object_unref(connection);
+
 	if (err != NULL)
 	{
 		blog(LOG_ERROR, "Cannot stop GNOME Screen Cast - DBus call failed: %s", err->message);
 		g_error_free(err);
-
-		g_object_unref(data->connection);
-		data->connection = NULL;
 
 		return;
 	}
@@ -232,9 +228,6 @@ static void stop(data_t* data)
 	{
 		blog(LOG_ERROR, "Cannot stop GNOME Screen Cast");
 	}
-
-	g_object_unref(data->connection);
-	data->connection = NULL;
 }
 
 static void destroy(void* data)
