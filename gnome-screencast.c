@@ -29,8 +29,10 @@ OBS_DECLARE_MODULE()
 typedef struct {
 	GstElement* pipe;
 	obs_source_t* source;
+	obs_data_t* settings;
 	gint64 frame_count;
 	GdkRectangle rect;
+	gulong handler_id;
 } data_t;
 
 static GstFlowReturn new_sample(GstAppSink* appsink, gpointer user_data)
@@ -83,6 +85,24 @@ static void start(data_t* data, obs_data_t* settings)
 	g_snprintf(tmp_socket, sizeof(tmp_socket), "/tmp/obs-gnome-screencast-%d", g_random_int_range(0,10000000)); // FIXME: make me really unique
 	g_snprintf(variant_string, sizeof(variant_string), "{'draw-cursor' : <%s>, 'framerate' : <%lld>, 'pipeline' : <'tee name=tee ! queue ! shmsink socket-path=%s wait-for-connection=false sync=false tee. ! queue'>}", obs_data_get_bool(settings, "show_cursor") ? "true" : "false", obs_data_get_int(settings, "frame_rate"), tmp_socket);
 
+	GDBusProxy* proxy = g_dbus_proxy_new_for_bus_sync(
+		G_BUS_TYPE_SESSION,
+		G_DBUS_PROXY_FLAGS_NONE,
+		NULL,
+		"org.gnome.Shell.Screencast",
+		"/org/gnome/Shell/Screencast",
+		"org.gnome.Shell.Screencast",
+		NULL,
+		&err);
+
+	if (err != NULL)
+	{
+		blog(LOG_ERROR, "Cannot connect to DBus: %s", err->message);
+		g_error_free(err);
+
+		return;
+	}
+
 	GVariantBuilder* builder = g_variant_builder_new(G_VARIANT_TYPE_TUPLE);
 	g_variant_builder_add_value(builder, g_variant_new_int32(data->rect.x));
 	g_variant_builder_add_value(builder, g_variant_new_int32(data->rect.y));
@@ -91,32 +111,16 @@ static void start(data_t* data, obs_data_t* settings)
 	g_variant_builder_add_value(builder, g_variant_new_string("/dev/null"));
 	g_variant_builder_add_value(builder, g_variant_new_parsed(variant_string));
 
-	GDBusConnection* connection = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &err);
-	if (err != NULL)
-	{
-		blog(LOG_ERROR, "Cannot connect to DBus: %s", err->message);
-		g_error_free(err);
-
-		g_variant_builder_unref(builder);
-
-		return;
-	}
-
-	GVariant* res = g_dbus_connection_call_sync(
-		connection,
-		"org.gnome.Shell.Screencast",
-		"/org/gnome/Shell/Screencast",
-		"org.gnome.Shell.Screencast",
+	GVariant* res = g_dbus_proxy_call_sync(proxy,
 		"ScreencastArea",
 		g_variant_builder_end(builder),
-		NULL,
 		G_DBUS_CALL_FLAGS_NONE,
 		-1,
 		NULL,
 		&err);
 
 	g_variant_builder_unref(builder);
-	g_object_unref(connection);
+	g_object_unref(proxy);
 
 	if (err != NULL)
 	{
@@ -164,11 +168,31 @@ static void start(data_t* data, obs_data_t* settings)
 	gst_element_set_state(data->pipe, GST_STATE_PLAYING);
 }
 
+static void update(void* data, obs_data_t* settings);
+
+static gboolean timed_update(gpointer user_data)
+{
+	data_t* data = user_data;
+
+	update(data, data->settings);
+
+	return FALSE;
+}
+
+static void monitors_changed(GdkScreen* screen, gpointer user_data)
+{
+	data_t* data = user_data;
+
+	g_timeout_add(1000, timed_update, data); // FIXME: we need to delay or fail.. could we sync this better?
+}
+
 static void* create(obs_data_t* settings, obs_source_t* source)
 {
 	data_t* data = g_new0(data_t, 1);
 
 	data->source = source;
+	data->settings = settings;
+	data->handler_id = g_signal_connect(gdk_display_get_default_screen(gdk_display_get_default()), "monitors-changed", G_CALLBACK(monitors_changed), data);
 
 	start(data, settings);
 
@@ -188,7 +212,16 @@ static void stop(data_t* data)
 	gst_object_unref(data->pipe);
 	data->pipe = NULL;
 
-	GDBusConnection* connection = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &err);
+	GDBusProxy* proxy = g_dbus_proxy_new_for_bus_sync(
+		G_BUS_TYPE_SESSION,
+		G_DBUS_PROXY_FLAGS_NONE,
+		NULL,
+		"org.gnome.Shell.Screencast",
+		"/org/gnome/Shell/Screencast",
+		"org.gnome.Shell.Screencast",
+		NULL,
+		&err);
+
 	if (err != NULL)
 	{
 		blog(LOG_ERROR, "Cannot connect to DBus: %s", err->message);
@@ -197,20 +230,15 @@ static void stop(data_t* data)
 		return;
 	}
 
-	GVariant* res = g_dbus_connection_call_sync(
-		connection,
-		"org.gnome.Shell.Screencast",
-		"/org/gnome/Shell/Screencast",
-		"org.gnome.Shell.Screencast",
+	GVariant* res = g_dbus_proxy_call_sync(proxy,
 		"StopScreencast",
-		NULL,
 		NULL,
 		G_DBUS_CALL_FLAGS_NONE,
 		-1,
 		NULL,
 		&err);
 
-	g_object_unref(connection);
+	g_object_unref(proxy);
 
 	if (err != NULL)
 	{
@@ -232,6 +260,7 @@ static void stop(data_t* data)
 
 static void destroy(void* data)
 {
+	g_signal_handler_disconnect(gdk_display_get_default_screen(gdk_display_get_default()), ((data_t*)data)->handler_id);
 	stop(data);
 	g_free(data);
 }
