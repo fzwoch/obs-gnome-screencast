@@ -195,8 +195,6 @@ static void* create(obs_data_t* settings, obs_source_t* source)
 	data->settings = settings;
 	data->handler_id = g_signal_connect(gdk_display_get_default_screen(gdk_display_get_default()), "monitors-changed", G_CALLBACK(monitors_changed), data);
 
-	start(data, settings);
-
 	return data;
 }
 
