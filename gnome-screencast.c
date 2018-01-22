@@ -300,6 +300,16 @@ static void update(void* data, obs_data_t* settings)
 	start(data, settings);
 }
 
+static void show(void* data)
+{
+	start(data, ((data_t*)data)->settings);
+}
+
+static void hide(void* data)
+{
+	stop(data);
+}
+
 bool obs_module_load(void)
 {
 	struct obs_source_info info = {
@@ -314,6 +324,8 @@ bool obs_module_load(void)
 		.get_defaults = get_defaults,
 		.get_properties = get_properties,
 		.update = update,
+		.show = show,
+		.hide = hide,
 	};
 
 	obs_register_source(&info);
