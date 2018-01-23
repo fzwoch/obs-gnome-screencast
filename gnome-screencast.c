@@ -184,6 +184,11 @@ static void monitors_changed(GdkScreen* screen, gpointer user_data)
 {
 	data_t* data = user_data;
 
+	if (data->pipe == NULL)
+	{
+		return;
+	}
+
 	g_timeout_add(5000, timed_update, data); // FIXME: we need to delay or fail.. could we sync this better?
 }
 
@@ -294,6 +299,11 @@ static obs_properties_t* get_properties(void* data)
 
 static void update(void* data, obs_data_t* settings)
 {
+	if (((data_t*)data)->pipe == NULL)
+	{
+		return;
+	}
+
 	stop(data);
 	start(data, settings);
 }
