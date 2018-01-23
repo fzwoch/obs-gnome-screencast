@@ -184,11 +184,6 @@ static void monitors_changed(GdkScreen* screen, gpointer user_data)
 {
 	data_t* data = user_data;
 
-	if (data->pipe == NULL)
-	{
-		return;
-	}
-
 	g_timeout_add(5000, timed_update, data); // FIXME: we need to delay or fail.. could we sync this better?
 }
 
