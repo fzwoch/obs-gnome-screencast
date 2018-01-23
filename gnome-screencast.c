@@ -67,11 +67,11 @@ static const char* get_name(void* type_data)
 	return "GNOME Screen Cast";
 }
 
-static void start(data_t* data, obs_data_t* settings)
+static void start(data_t* data)
 {
 	GError* err = NULL;
 
-	gint screen = obs_data_get_int(settings, "screen");
+	gint screen = obs_data_get_int(data->settings, "screen");
 	if (screen >= gdk_display_get_n_monitors(gdk_display_get_default()))
 	{
 		screen = 0;
@@ -83,7 +83,7 @@ static void start(data_t* data, obs_data_t* settings)
 	gchar variant_string[1024];
 
 	g_snprintf(tmp_socket, sizeof(tmp_socket), "/tmp/obs-gnome-screencast-%d", g_random_int_range(0,10000000)); // FIXME: make me really unique
-	g_snprintf(variant_string, sizeof(variant_string), "{'draw-cursor' : <%s>, 'framerate' : <%lld>, 'pipeline' : <'tee name=tee ! queue ! shmsink socket-path=%s wait-for-connection=false sync=false tee. ! queue'>}", obs_data_get_bool(settings, "show_cursor") ? "true" : "false", obs_data_get_int(settings, "frame_rate"), tmp_socket);
+	g_snprintf(variant_string, sizeof(variant_string), "{'draw-cursor' : <%s>, 'framerate' : <%lld>, 'pipeline' : <'tee name=tee ! queue ! shmsink socket-path=%s wait-for-connection=false sync=false tee. ! queue'>}", obs_data_get_bool(data->settings, "show_cursor") ? "true" : "false", obs_data_get_int(data->settings, "frame_rate"), tmp_socket);
 
 	GDBusProxy* proxy = g_dbus_proxy_new_for_bus_sync(
 		G_BUS_TYPE_SESSION,
@@ -300,12 +300,12 @@ static void update(void* data, obs_data_t* settings)
 	}
 
 	stop(data);
-	start(data, settings);
+	start(data);
 }
 
 static void show(void* data)
 {
-	start(data, ((data_t*)data)->settings);
+	start(data);
 }
 
 static void hide(void* data)
