@@ -30,5 +30,7 @@ shared_library('gnome-screencast',
     dependency('gstreamer-app-1.0'),
     dependency('gdk-3.0')
   ],
-  link_args : '-static-libgcc'
+  link_args : '-static-libgcc',
+  install : true,
+  install_dir : 'lib/obs-plugins'
 )
