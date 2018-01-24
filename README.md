@@ -35,6 +35,8 @@ all dependencies are installed correctly this should do the trick:
 ```
 meson --buildtype=release build
 ninja -C build
-```
 
-You will then have to copy the plugin to your OBS plugin directory.
+# optional; for installing the plugin into
+# '/usr/local/lib/obs-plugins'
+sudo ninja -C build install
+```
