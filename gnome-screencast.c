@@ -83,7 +83,7 @@ static void start(data_t* data)
 	gchar variant_string[1024];
 
 	g_snprintf(tmp_socket, sizeof(tmp_socket), "/tmp/obs-gnome-screencast-%d", g_random_int_range(0,10000000)); // FIXME: make me really unique
-	g_snprintf(variant_string, sizeof(variant_string), "{'draw-cursor' : <%s>, 'framerate' : <%lld>, 'pipeline' : <'tee name=tee ! queue ! shmsink socket-path=%s wait-for-connection=false sync=false tee. ! queue'>}", obs_data_get_bool(data->settings, "show_cursor") ? "true" : "false", obs_data_get_int(data->settings, "frame_rate"), tmp_socket);
+	g_snprintf(variant_string, sizeof(variant_string), "{'draw-cursor' : <%s>, 'framerate' : <%lld>, 'pipeline' : <'queue ! shmsink socket-path=%s wait-for-connection=false sync=false'>}", obs_data_get_bool(data->settings, "show_cursor") ? "true" : "false", obs_data_get_int(data->settings, "frame_rate"), tmp_socket);
 
 	GDBusProxy* proxy = g_dbus_proxy_new_for_bus_sync(
 		G_BUS_TYPE_SESSION,
