@@ -31,7 +31,6 @@ typedef struct {
 	obs_source_t* source;
 	obs_data_t* settings;
 	gint64 frame_count;
-	GdkRectangle rect;
 	gulong handler_id;
 } data_t;
 
@@ -40,17 +39,24 @@ static GstFlowReturn new_sample(GstAppSink* appsink, gpointer user_data)
 	data_t* data = user_data;
 	GstSample* sample = gst_app_sink_pull_sample(appsink);
 	GstBuffer* buffer = gst_sample_get_buffer(sample);
+	GstCaps* caps = gst_sample_get_caps(sample);
+	GstStructure* structure = gst_caps_get_structure(caps, 0);
 	GstMapInfo info;
+	gint width;
+	gint height;
+
+	gst_structure_get_int(structure, "width", &width);
+	gst_structure_get_int(structure, "height", &height);
 
 	gst_buffer_map(buffer, &info, GST_MAP_READ);
 
 	struct obs_source_frame frame = {
-		.width = data->rect.width,
-		.height = data->rect.height,
+		.width = width,
+		.height = height,
 		.format = VIDEO_FORMAT_BGRA,
 		.timestamp = data->frame_count++,
 		.full_range = true,
-		.linesize[0] = data->rect.width * 4,
+		.linesize[0] = width * 4,
 		.data[0] = info.data,
 	};
 
@@ -70,17 +76,25 @@ static const char* get_name(void* type_data)
 static void start(data_t* data)
 {
 	GError* err = NULL;
+	gboolean capture_desktop = FALSE;
+	GdkRectangle rect = {};
 
 	gint screen = obs_data_get_int(data->settings, "screen");
 	if (screen >= gdk_display_get_n_monitors(gdk_display_get_default()))
 	{
-		screen = 0;
+		capture_desktop = TRUE;
+	}
+	else
+	{
+		gdk_monitor_get_geometry(gdk_display_get_monitor(gdk_display_get_default(), screen), &rect);
 	}
 
-	gdk_monitor_get_geometry(gdk_display_get_monitor(gdk_display_get_default(), screen), &data->rect);
-
 	gchar variant_string[1024];
-	g_snprintf(variant_string, sizeof(variant_string), "{'draw-cursor' : <%s>, 'framerate' : <%lld>, 'pipeline' : <'queue ! shmsink socket-path=%s wait-for-connection=false sync=false'>}", obs_data_get_bool(data->settings, "show_cursor") ? "true" : "false", obs_data_get_int(data->settings, "frame_rate"), obs_data_get_string(data->settings, "shm_socket"));
+	g_snprintf(variant_string, sizeof(variant_string),
+		"{'draw-cursor' : <%s>, 'framerate' : <%lld>, 'pipeline' : <'queue ! gdppay ! shmsink socket-path=%s wait-for-connection=false sync=false'>}",
+		obs_data_get_bool(data->settings, "show_cursor") ? "true" : "false",
+		obs_data_get_int(data->settings, "frame_rate"),
+		obs_data_get_string(data->settings, "shm_socket"));
 
 	GDBusProxy* proxy = g_dbus_proxy_new_for_bus_sync(
 		G_BUS_TYPE_SESSION,
@@ -101,16 +115,19 @@ static void start(data_t* data)
 	}
 
 	GVariantBuilder* builder = g_variant_builder_new(G_VARIANT_TYPE_TUPLE);
-	g_variant_builder_add_value(builder, g_variant_new_int32(data->rect.x));
-	g_variant_builder_add_value(builder, g_variant_new_int32(data->rect.y));
-	g_variant_builder_add_value(builder, g_variant_new_int32(data->rect.width));
-	g_variant_builder_add_value(builder, g_variant_new_int32(data->rect.height));
+	if (capture_desktop == FALSE)
+	{
+		g_variant_builder_add_value(builder, g_variant_new_int32(rect.x));
+		g_variant_builder_add_value(builder, g_variant_new_int32(rect.y));
+		g_variant_builder_add_value(builder, g_variant_new_int32(rect.width));
+		g_variant_builder_add_value(builder, g_variant_new_int32(rect.height));
+	}
 	g_variant_builder_add_value(builder, g_variant_new_string("/dev/null"));
 	g_variant_builder_add_value(builder, g_variant_new_parsed(variant_string));
 
 	GVariant* res = g_dbus_proxy_call_sync(
 		proxy,
-		"ScreencastArea",
+		capture_desktop ? "Screencast" : "ScreencastArea",
 		g_variant_builder_end(builder),
 		G_DBUS_CALL_FLAGS_NONE,
 		-1,
@@ -140,7 +157,7 @@ static void start(data_t* data)
 	}
 
 	gchar pipe[1024];
-	g_snprintf(pipe, sizeof(pipe), "shmsrc socket-path=%s ! rawvideoparse format=bgrx width=%d height=%d ! appsink max-buffers=10 drop=true name=appsink sync=false", obs_data_get_string(data->settings, "shm_socket"), data->rect.width, data->rect.height);
+	g_snprintf(pipe, sizeof(pipe), "shmsrc socket-path=%s ! gdpdepay ! appsink max-buffers=10 drop=true name=appsink sync=false", obs_data_get_string(data->settings, "shm_socket"));
 
 	data->pipe = gst_parse_launch(pipe, &err);
 	if (err != NULL)
@@ -283,6 +300,7 @@ static obs_properties_t* get_properties(void* data)
 		g_snprintf(name, sizeof(name), "Screen #%d", i);
 		obs_property_list_add_int(prop, name, i);
 	}
+	obs_property_list_add_int(prop, "Desktop", gdk_display_get_n_monitors(gdk_display_get_default()));
 
 	obs_properties_add_text(props, "shm_socket", "SHM Socket", OBS_TEXT_DEFAULT);
 	obs_properties_add_bool(props, "show_cursor", "Capture Cursor (10 FPS only)");
