@@ -79,11 +79,8 @@ static void start(data_t* data)
 
 	gdk_monitor_get_geometry(gdk_display_get_monitor(gdk_display_get_default(), screen), &data->rect);
 
-	gchar tmp_socket[64];
 	gchar variant_string[1024];
-
-	g_snprintf(tmp_socket, sizeof(tmp_socket), "/tmp/obs-gnome-screencast-%d", g_random_int_range(0,10000000)); // FIXME: make me really unique
-	g_snprintf(variant_string, sizeof(variant_string), "{'draw-cursor' : <%s>, 'framerate' : <%lld>, 'pipeline' : <'queue ! shmsink socket-path=%s wait-for-connection=false sync=false'>}", obs_data_get_bool(data->settings, "show_cursor") ? "true" : "false", obs_data_get_int(data->settings, "frame_rate"), tmp_socket);
+	g_snprintf(variant_string, sizeof(variant_string), "{'draw-cursor' : <%s>, 'framerate' : <%lld>, 'pipeline' : <'queue ! shmsink socket-path=%s wait-for-connection=false sync=false'>}", obs_data_get_bool(data->settings, "show_cursor") ? "true" : "false", obs_data_get_int(data->settings, "frame_rate"), obs_data_get_string(data->settings, "shm_socket"));
 
 	GDBusProxy* proxy = g_dbus_proxy_new_for_bus_sync(
 		G_BUS_TYPE_SESSION,
@@ -143,7 +140,7 @@ static void start(data_t* data)
 	}
 
 	gchar pipe[1024];
-	g_snprintf(pipe, sizeof(pipe), "shmsrc socket-path=%s ! rawvideoparse format=bgrx width=%d height=%d ! appsink max-buffers=10 drop=true name=appsink sync=false", tmp_socket, data->rect.width, data->rect.height);
+	g_snprintf(pipe, sizeof(pipe), "shmsrc socket-path=%s ! rawvideoparse format=bgrx width=%d height=%d ! appsink max-buffers=10 drop=true name=appsink sync=false", obs_data_get_string(data->settings, "shm_socket"), data->rect.width, data->rect.height);
 
 	data->pipe = gst_parse_launch(pipe, &err);
 	if (err != NULL)
@@ -268,6 +265,7 @@ static void destroy(void* data)
 static void get_defaults(obs_data_t* settings)
 {
 	obs_data_set_default_int(settings, "screen", 0);
+	obs_data_set_default_string(settings, "shm_socket", "/tmp/obs-gnome-screencast.sock");
 	obs_data_set_default_bool(settings, "show_cursor", true);
 	obs_data_set_default_int(settings, "frame_rate", 30);
 }
@@ -286,8 +284,9 @@ static obs_properties_t* get_properties(void* data)
 		obs_property_list_add_int(prop, name, i);
 	}
 
+	obs_properties_add_text(props, "shm_socket", "SHM Socket", OBS_TEXT_DEFAULT);
 	obs_properties_add_bool(props, "show_cursor", "Capture cursor");
-	obs_properties_add_int(props, "frame_rate", "Frame rate", 1, 1000, 1);
+	obs_properties_add_int(props, "frame_rate", "FPS", 1, 1000, 1);
 
 	return props;
 }
