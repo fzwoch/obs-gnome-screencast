@@ -285,7 +285,7 @@ static obs_properties_t* get_properties(void* data)
 	}
 
 	obs_properties_add_text(props, "shm_socket", "SHM Socket", OBS_TEXT_DEFAULT);
-	obs_properties_add_bool(props, "show_cursor", "Capture cursor");
+	obs_properties_add_bool(props, "show_cursor", "Capture Cursor (10 FPS only)");
 	obs_properties_add_int(props, "frame_rate", "FPS", 1, 1000, 1);
 
 	return props;
