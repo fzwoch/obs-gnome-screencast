@@ -269,7 +269,7 @@ static void get_defaults(obs_data_t* settings)
 {
 	obs_data_set_default_int(settings, "screen", 0);
 	obs_data_set_default_bool(settings, "show_cursor", true);
-	obs_data_set_default_int(settings, "frame_rate", 60);
+	obs_data_set_default_int(settings, "frame_rate", 30);
 }
 
 static obs_properties_t* get_properties(void* data)
@@ -287,7 +287,7 @@ static obs_properties_t* get_properties(void* data)
 	}
 
 	obs_properties_add_bool(props, "show_cursor", "Capture cursor");
-	obs_properties_add_int(props, "frame_rate", "Frame rate", 1, 200, 1);
+	obs_properties_add_int(props, "frame_rate", "Frame rate", 1, 1000, 1);
 
 	return props;
 }
