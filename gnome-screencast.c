@@ -109,7 +109,7 @@ static void start(data_t* data)
 
 	gchar variant_string[1024];
 	g_snprintf(variant_string, sizeof(variant_string),
-		"{'draw-cursor' : <%s>, 'framerate' : <%lld>, 'pipeline' : <'queue ! gdppay ! shmsink socket-path=%s wait-for-connection=false sync=false'>}",
+		"{'draw-cursor' : <%s>, 'framerate' : <%lld>, 'pipeline' : <'queue ! gdppay ! shmsink perms=384 socket-path=%s wait-for-connection=false sync=false'>}",
 		obs_data_get_bool(data->settings, "show_cursor") ? "true" : "false",
 		obs_data_get_int(data->settings, "frame_rate"),
 		obs_data_get_string(data->settings, "shm_socket"));
