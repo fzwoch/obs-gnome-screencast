@@ -50,8 +50,17 @@ static GstFlowReturn new_sample(GstAppSink* appsink, gpointer user_data)
 #if DEBUG_TIMESTAMPS
 	static gint64 last = 0;
 	gint64 now = GST_BUFFER_PTS(buffer);
-	g_print("buffer PTS diff: %ld ms\n", (now - last) / 1000000L);
+
+	static gint64 local_last = 0;
+	gint64 local_now = g_get_monotonic_time();
+
+	g_print("buffer PTS diff: %ld ms, local diff: %ld, jitter: %+ld\n",
+		(now - last) / 1000000L,
+		(local_now - local_last) / 1000L,
+		(local_now - local_last) / 1000L - (now - last) / 1000000L);
+
 	last = now;
+	local_last = local_now;
 #endif
 
 	gst_structure_get_int(structure, "width", &width);
