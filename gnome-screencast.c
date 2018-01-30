@@ -49,7 +49,7 @@ static GstFlowReturn new_sample(GstAppSink* appsink, gpointer user_data)
 
 #if DEBUG_TIMESTAMPS
 	static gint64 last = 0;
-	gint now = GST_BUFFER_PTS(buffer);
+	gint64 now = GST_BUFFER_PTS(buffer);
 	g_print("buffer PTS diff: %ld ms\n", (now - last) / 1000000L);
 	last = now;
 #endif
