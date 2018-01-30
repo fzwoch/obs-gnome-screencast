@@ -24,6 +24,8 @@
 #include <gst/app/app.h>
 #include <gdk/gdk.h>
 
+#define DEBUG_TIMESTAMPS 0
+
 OBS_DECLARE_MODULE()
 
 typedef struct {
@@ -44,6 +46,13 @@ static GstFlowReturn new_sample(GstAppSink* appsink, gpointer user_data)
 	GstMapInfo info;
 	gint width;
 	gint height;
+
+#if DEBUG_TIMESTAMPS
+	static gint64 last = 0;
+	gint now = GST_BUFFER_PTS(buffer);
+	g_print("buffer PTS diff: %ld ms\n", (now - last) / 1000000L);
+	last = now;
+#endif
 
 	gst_structure_get_int(structure, "width", &width);
 	gst_structure_get_int(structure, "height", &height);
