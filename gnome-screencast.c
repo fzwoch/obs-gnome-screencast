@@ -299,8 +299,10 @@ static void destroy(void* data)
 
 static void get_defaults(obs_data_t* settings)
 {
+	g_autofree char *default_socket_path = g_build_filename(g_get_user_runtime_dir(), "obs-gnome-screencast",
+	                                                        "shm.sock", NULL);
 	obs_data_set_default_int(settings, "screen", 0);
-	obs_data_set_default_string(settings, "shm_socket", "/tmp/obs-gnome-screencast.sock");
+	obs_data_set_default_string(settings, "shm_socket", default_socket_path);
 	obs_data_set_default_bool(settings, "show_cursor", true);
 	obs_data_set_default_int(settings, "frame_rate", 30);
 }
