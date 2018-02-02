@@ -23,6 +23,7 @@
 #include <gst/gst.h>
 #include <gst/app/app.h>
 #include <gdk/gdk.h>
+#include <sys/stat.h>
 
 #define DEBUG_TIMESTAMPS 0
 
@@ -105,6 +106,17 @@ static void start(data_t* data)
 	else
 	{
 		gdk_monitor_get_geometry(gdk_display_get_monitor(gdk_display_get_default(), screen), &rect);
+	}
+
+	g_autofree gchar* dirname = g_path_get_dirname(obs_data_get_string(data->settings, "shm_socket"));
+	if (g_file_test(dirname, G_FILE_TEST_IS_DIR) == FALSE)
+	{
+		if (g_mkdir_with_parents(dirname, S_IRUSR | S_IWUSR | S_IXUSR) == -1)
+		{
+			blog(LOG_ERROR, "Cannot create socket directory: %s", dirname);
+
+			return;
+		}
 	}
 
 	gchar variant_string[1024];
