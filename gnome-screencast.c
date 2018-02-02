@@ -108,6 +108,13 @@ static void start(data_t* data)
 		gdk_monitor_get_geometry(gdk_display_get_monitor(gdk_display_get_default(), screen), &rect);
 	}
 
+	if (g_file_test(obs_data_get_string(data->settings, "shm_socket"), G_FILE_TEST_EXISTS) == TRUE)
+	{
+		blog(LOG_ERROR, "Socket already exists: %s", obs_data_get_string(data->settings, "shm_socket"));
+
+		return;
+	}
+
 	g_autofree gchar* dirname = g_path_get_dirname(obs_data_get_string(data->settings, "shm_socket"));
 	if (g_file_test(dirname, G_FILE_TEST_IS_DIR) == FALSE)
 	{
