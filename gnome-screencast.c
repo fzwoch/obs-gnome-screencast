@@ -215,6 +215,16 @@ static void start(data_t* data)
 
 	data->frame_count = 0;
 
+	for (gint i = 0; i < 100; i++)
+	{
+		if (g_file_test(obs_data_get_string(data->settings, "shm_socket"), G_FILE_TEST_EXISTS) == TRUE)
+		{
+			break;
+		}
+
+		g_usleep(10000);
+	}
+
 	gst_element_set_state(data->pipe, GST_STATE_PLAYING);
 }
 
