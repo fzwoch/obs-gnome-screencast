@@ -258,10 +258,6 @@ static void stop(data_t* data)
 		return;
 	}
 
-	gst_element_set_state(data->pipe, GST_STATE_NULL);
-	gst_object_unref(data->pipe);
-	data->pipe = NULL;
-
 	GDBusProxy* proxy = g_dbus_proxy_new_for_bus_sync(
 		G_BUS_TYPE_SESSION,
 		G_DBUS_PROXY_FLAGS_NONE,
@@ -277,7 +273,7 @@ static void stop(data_t* data)
 		blog(LOG_ERROR, "Cannot connect to DBus: %s", err->message);
 		g_error_free(err);
 
-		return;
+		goto cleanup;
 	}
 
 	GVariant* res = g_dbus_proxy_call_sync(
@@ -296,7 +292,7 @@ static void stop(data_t* data)
 		blog(LOG_ERROR, "Cannot stop GNOME Screen Cast - DBus call failed: %s", err->message);
 		g_error_free(err);
 
-		return;
+		goto cleanup;
 	}
 
 	gboolean success = FALSE;
@@ -307,6 +303,15 @@ static void stop(data_t* data)
 	{
 		blog(LOG_ERROR, "Cannot stop GNOME Screen Cast");
 	}
+
+	GstBus* bus = gst_element_get_bus(data->pipe);
+	gst_bus_timed_pop_filtered(bus, GST_SECOND, GST_MESSAGE_EOS);
+	gst_object_unref(bus);
+
+cleanup:
+	gst_element_set_state(data->pipe, GST_STATE_NULL);
+	gst_object_unref(data->pipe);
+	data->pipe = NULL;
 }
 
 static void destroy(void* data)
