@@ -126,8 +126,7 @@ static void start(data_t* data)
 		}
 	}
 
-	gchar variant_string[1024];
-	g_snprintf(variant_string, sizeof(variant_string),
+	g_autofree gchar* variant_string = g_strdup_printf(
 		"{'draw-cursor' : <%s>, 'framerate' : <%lld>, 'pipeline' : <'queue ! gdppay ! shmsink perms=384 socket-path=\"%s\" wait-for-connection=false sync=false'>}",
 		obs_data_get_bool(data->settings, "show_cursor") ? "true" : "false",
 		obs_data_get_int(data->settings, "frame_rate"),
@@ -193,8 +192,7 @@ static void start(data_t* data)
 		return;
 	}
 
-	gchar pipe[1024];
-	g_snprintf(pipe, sizeof(pipe), "shmsrc socket-path=\"%s\" ! gdpdepay ! appsink max-buffers=10 drop=true name=appsink sync=false", obs_data_get_string(data->settings, "shm_socket"));
+	g_autofree gchar* pipe = g_strdup_printf("shmsrc socket-path=\"%s\" ! gdpdepay ! appsink max-buffers=10 drop=true name=appsink sync=false", obs_data_get_string(data->settings, "shm_socket"));
 
 	data->pipe = gst_parse_launch(pipe, &err);
 	if (err != NULL)
@@ -233,9 +231,7 @@ static gboolean timed_update(gpointer user_data)
 
 static void monitors_changed(GdkScreen* screen, gpointer user_data)
 {
-	data_t* data = user_data;
-
-	g_timeout_add(5000, timed_update, data); // FIXME: we need to delay or fail.. could we sync this better?
+	g_timeout_add(5000, timed_update, user_data); // FIXME: we need to delay or fail.. could we sync this better?
 }
 
 static void* create(obs_data_t* settings, obs_source_t* source)
@@ -302,6 +298,8 @@ static void stop(data_t* data)
 	if (success != TRUE)
 	{
 		blog(LOG_ERROR, "Cannot stop GNOME Screen Cast");
+
+		goto cleanup;
 	}
 
 	GstBus* bus = gst_element_get_bus(data->pipe);
@@ -316,15 +314,19 @@ cleanup:
 
 static void destroy(void* data)
 {
-	g_signal_handler_disconnect(gdk_display_get_default_screen(gdk_display_get_default()), ((data_t*)data)->handler_id);
+	g_signal_handler_disconnect(
+		gdk_display_get_default_screen(gdk_display_get_default()),
+		((data_t*)data)->handler_id);
+
 	stop(data);
 	g_free(data);
 }
 
 static void get_defaults(obs_data_t* settings)
 {
-	g_autofree char *default_socket_path = g_build_filename(g_get_user_runtime_dir(), "obs-gnome-screencast",
-	                                                        "shm.sock", NULL);
+	g_autofree gchar* default_socket_path = g_build_filename(
+		g_get_user_runtime_dir(), "obs-gnome-screencast", "shm.sock", NULL);
+
 	obs_data_set_default_int(settings, "screen", 0);
 	obs_data_set_default_string(settings, "shm_socket", default_socket_path);
 	obs_data_set_default_bool(settings, "show_cursor", true);
@@ -340,8 +342,7 @@ static obs_properties_t* get_properties(void* data)
 
 	for (int i = 0; i < gdk_display_get_n_monitors(gdk_display_get_default()); i++)
 	{
-		gchar name[32];
-		g_snprintf(name, sizeof(name), "Screen #%d", i);
+		g_autofree gchar* name = g_strdup_printf("Screen #%d", i);
 		obs_property_list_add_int(prop, name, i);
 	}
 	obs_property_list_add_int(prop, "Desktop", gdk_display_get_n_monitors(gdk_display_get_default()));
