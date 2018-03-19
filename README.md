@@ -42,10 +42,10 @@ I don't know CMake so you will have to deal with meson instead. Assuming that
 all dependencies are installed correctly this should do the trick:
 
 ```
-meson --buildtype=release build
-ninja -C build
+$ meson --buildtype=release build
+$ ninja -C build
 
 # optional; for installing the plugin into
 # '/usr/local/lib/obs-plugins'
-sudo ninja -C build install
+$ sudo ninja -C build install
 ```
