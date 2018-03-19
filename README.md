@@ -27,6 +27,15 @@ The mouse cursor is currently very choppy. The reason for this is that the
 cursor drawing is done at the GNOME Screen Cast implementation but they only
 update cursor coordinates every 100ms.
 
+## Todo
+
+Keep an eye on support for the Freedesktop variation of this API:
+
+https://github.com/flatpak/xdg-desktop-portal/blob/master/data/org.freedesktop.portal.ScreenCast.xml
+
+Once KDE/GNOME and distributions have picked this up we could modify the plugin
+slightly to have unified platform support.
+
 ## Build
 
 I don't know CMake so you will have to deal with meson instead. Assuming that
