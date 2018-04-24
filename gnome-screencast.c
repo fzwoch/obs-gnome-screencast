@@ -26,6 +26,7 @@
 #include <sys/stat.h>
 
 #define DEBUG_TIMESTAMPS 0
+#define USE_TIMESTAMPS 0
 
 OBS_DECLARE_MODULE()
 
@@ -73,7 +74,11 @@ static GstFlowReturn new_sample(GstAppSink* appsink, gpointer user_data)
 		.width = width,
 		.height = height,
 		.format = VIDEO_FORMAT_BGRA,
+#if USE_TIMESTAMPS
+		.timestamp = GST_BUFFER_PTS(buffer),
+#else
 		.timestamp = data->frame_count++,
+#endif
 		.full_range = true,
 		.linesize[0] = width * 4,
 		.data[0] = info.data,
