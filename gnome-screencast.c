@@ -26,7 +26,6 @@
 #include <sys/stat.h>
 
 #define DEBUG_TIMESTAMPS 0
-#define USE_TIMESTAMPS 0
 
 OBS_DECLARE_MODULE()
 
@@ -74,11 +73,7 @@ static GstFlowReturn new_sample(GstAppSink* appsink, gpointer user_data)
 		.width = width,
 		.height = height,
 		.format = VIDEO_FORMAT_BGRA,
-#if USE_TIMESTAMPS
-		.timestamp = GST_BUFFER_PTS(buffer),
-#else
-		.timestamp = data->frame_count++,
-#endif
+		.timestamp = obs_data_get_bool(data->settings, "use_timestamps") ? GST_BUFFER_PTS(buffer) : data->frame_count++,
 		.full_range = true,
 		.linesize[0] = width * 4,
 		.data[0] = info.data,
@@ -345,6 +340,7 @@ static void get_defaults(obs_data_t* settings)
 	obs_data_set_default_int(settings, "screen", 0);
 	obs_data_set_default_string(settings, "shm_socket", default_socket_path);
 	obs_data_set_default_bool(settings, "show_cursor", true);
+	obs_data_set_default_bool(settings, "use_timestamps", true);
 	obs_data_set_default_int(settings, "frame_rate", 30);
 }
 
@@ -364,6 +360,7 @@ static obs_properties_t* get_properties(void* data)
 
 	obs_properties_add_text(props, "shm_socket", "SHM Socket", OBS_TEXT_DEFAULT);
 	obs_properties_add_bool(props, "show_cursor", "Capture Cursor (10 FPS only)");
+	obs_properties_add_bool(props, "use_timestamps", "Use Time Stamps (less jitter, but eventually higher latency)");
 	obs_properties_add_int(props, "frame_rate", "FPS", 1, 1000, 1);
 
 	return props;
