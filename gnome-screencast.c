@@ -340,7 +340,7 @@ static void get_defaults(obs_data_t* settings)
 	obs_data_set_default_int(settings, "screen", 0);
 	obs_data_set_default_string(settings, "shm_socket", default_socket_path);
 	obs_data_set_default_bool(settings, "show_cursor", true);
-	obs_data_set_default_bool(settings, "use_timestamps", true);
+	obs_data_set_default_bool(settings, "use_timestamps", false);
 	obs_data_set_default_int(settings, "frame_rate", 30);
 }
 
