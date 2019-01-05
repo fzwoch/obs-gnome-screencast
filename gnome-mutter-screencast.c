@@ -157,6 +157,22 @@ static GstFlowReturn new_sample(GstAppSink* appsink, gpointer user_data)
 	return GST_FLOW_OK;
 }
 
+static void dbus_stream_closed_cb(GDBusConnection *connection,
+	const gchar *sender_name,
+	const gchar *object_path,
+	const gchar *interface_name,
+	const gchar *signal_name,
+	GVariant *parameters,
+	gpointer user_data)
+{
+	data_t* data = user_data;
+
+	gst_element_set_state(data->pipe, GST_STATE_NULL);
+
+	gst_object_unref(data->pipe);
+	data->pipe = NULL;
+}
+
 static void dbus_cb(GDBusConnection *connection,
 	const gchar *sender_name,
 	const gchar *object_path,
@@ -171,7 +187,7 @@ static void dbus_cb(GDBusConnection *connection,
 
 	g_variant_get(parameters, "(u)", &node_id, NULL);
 
-	gchar* pipeline = g_strdup_printf("pipewiresrc path=%u ! video/x-raw ! queue ! appsink name=appsink", node_id);
+	gchar* pipeline = g_strdup_printf("pipewiresrc always-copy=true client-name=obs-studio path=%u ! video/x-raw ! queue ! appsink name=appsink", node_id);
 
 	data->pipe = gst_parse_launch(pipeline, &err);
 	g_free(pipeline);
@@ -282,6 +298,17 @@ static void start(data_t* data)
 	g_dbus_connection_signal_subscribe(dbus,
 		NULL,
 		NULL,
+		"Closed",
+		session_path,
+		NULL,
+		G_DBUS_CALL_FLAGS_NONE,
+		dbus_stream_closed_cb,
+		data,
+		NULL);
+
+	g_dbus_connection_signal_subscribe(dbus,
+		NULL,
+		NULL,
 		"PipeWireStreamAdded",
 		stream_path,
 		NULL,
@@ -334,11 +361,6 @@ static void stop(data_t* data)
 	{
 		return;
 	}
-
-	gst_element_set_state(data->pipe, GST_STATE_NULL);
-
-	gst_object_unref(data->pipe);
-	data->pipe = NULL;
 
 	GDBusConnection* dbus = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &err);
 	if (err != NULL)
