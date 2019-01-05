@@ -184,7 +184,7 @@ static void dbus_cb(GDBusConnection *connection,
 
 	g_variant_get(parameters, "(u)", &node_id, NULL);
 
-	gchar* pipeline = g_strdup_printf("pipewiresrc path=%u ! queue ! videoconvert ! appsink name=appsink", node_id);
+	gchar* pipeline = g_strdup_printf("pipewiresrc path=%u ! video/x-raw ! queue ! appsink name=appsink", node_id);
 
 	data->pipe = gst_parse_launch(pipeline, &err);
 	g_free(pipeline);
