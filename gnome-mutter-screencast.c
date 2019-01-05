@@ -46,7 +46,12 @@ static void dbus_session_closed_cb(GDBusConnection *connection,
 	GVariant *parameters,
 	gpointer user_data)
 {
-	blog(LOG_ERROR, "ScreenCast Session was Stopped()");
+	data_t* data = user_data;
+
+	gst_element_set_state(data->pipe, GST_STATE_NULL);
+
+	gst_object_unref(data->pipe);
+	data->pipe = NULL;
 }
 
 static gboolean bus_callback(GstBus* bus, GstMessage* message, gpointer user_data)
@@ -88,8 +93,6 @@ static GstFlowReturn new_sample(GstAppSink* appsink, gpointer user_data)
 	gst_buffer_map(buffer, &info, GST_MAP_READ);
 
 	struct obs_source_frame frame = {};
-
-	//frame.timestamp = obs_data_get_bool(data->settings, "use_timestamps") ? GST_BUFFER_PTS(buffer) : data->frame_count++;
 
 	frame.width = video_info.width;
 	frame.height = video_info.height;
@@ -206,8 +209,8 @@ static void dbus_cb(GDBusConnection *connection,
 	GstElement* appsink = gst_bin_get_by_name(GST_BIN(data->pipe), "appsink");
 	gst_app_sink_set_callbacks(GST_APP_SINK(appsink), &appsink_cbs, data, NULL);
 
-//	if (!obs_data_get_bool(data->settings, "sync_appsinks"))
-//		g_object_set(appsink, "sync", FALSE, NULL);
+	if (!obs_data_get_bool(data->settings, "sync_appsink"))
+		g_object_set(appsink, "sync", FALSE, NULL);
 
 	gst_object_unref(appsink);
 
@@ -392,17 +395,26 @@ static void stop(data_t* data)
 	data->session_path = NULL;
 
 	g_object_unref(dbus);
-
-	gst_element_set_state(data->pipe, GST_STATE_NULL);
-
-	gst_object_unref(data->pipe);
-	data->pipe = NULL;
 }
 
 static void destroy(void* data)
 {
 	stop(data);
 	g_free(data);
+}
+
+static void get_defaults(obs_data_t* settings)
+{
+	obs_data_set_default_bool(settings, "sync_appsink", false);
+}
+
+static obs_properties_t* get_properties(void* data)
+{
+	obs_properties_t* props = obs_properties_create();
+
+	obs_properties_add_bool(props, "sync_appsink", "Sync appsink to clock");
+
+	return props;
 }
 
 static void update(void* data, obs_data_t* settings)
@@ -437,6 +449,8 @@ bool obs_module_load(void)
 		.create = create,
 		.destroy = destroy,
 
+		.get_defaults = get_defaults,
+		.get_properties = get_properties,
 		.update = update,
 		.show = show,
 		.hide = hide,
