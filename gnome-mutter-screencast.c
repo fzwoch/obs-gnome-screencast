@@ -170,10 +170,13 @@ static void dbus_stream_closed_cb(GDBusConnection *connection,
 {
 	data_t* data = user_data;
 
-	gst_element_set_state(data->pipe, GST_STATE_NULL);
+	if (data->pipe)
+	{
+		gst_element_set_state(data->pipe, GST_STATE_NULL);
 
-	gst_object_unref(data->pipe);
-	data->pipe = NULL;
+		gst_object_unref(data->pipe);
+		data->pipe = NULL;
+	}
 }
 
 static void dbus_cb(GDBusConnection *connection,
@@ -190,7 +193,7 @@ static void dbus_cb(GDBusConnection *connection,
 
 	g_variant_get(parameters, "(u)", &node_id, NULL);
 
-	gchar* pipeline = g_strdup_printf("pipewiresrc always-copy=true client-name=obs-studio path=%u ! video/x-raw ! appsink max-buffers=2 drop=true sync=false name=appsink", node_id);
+	gchar* pipeline = g_strdup_printf("pipewiresrc client-name=obs-studio path=%u ! video/x-raw ! appsink max-buffers=2 drop=true sync=false name=appsink", node_id);
 
 	data->pipe = gst_parse_launch(pipeline, &err);
 	g_free(pipeline);
@@ -362,6 +365,11 @@ static void stop(data_t* data)
 	{
 		return;
 	}
+
+	gst_element_set_state(data->pipe, GST_STATE_NULL);
+
+	gst_object_unref(data->pipe);
+	data->pipe = NULL;
 
 	GDBusConnection* dbus = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &err);
 	if (err != NULL)
