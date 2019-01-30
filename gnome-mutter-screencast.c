@@ -190,7 +190,7 @@ static void dbus_cb(GDBusConnection *connection,
 
 	g_variant_get(parameters, "(u)", &node_id, NULL);
 
-	gchar* pipeline = g_strdup_printf("pipewiresrc always-copy=true client-name=obs-studio path=%u ! video/x-raw ! queue ! appsink max-buffers=2 drop=true name=appsink", node_id);
+	gchar* pipeline = g_strdup_printf("pipewiresrc always-copy=true client-name=obs-studio path=%u ! video/x-raw ! queue ! appsink max-buffers=2 drop=true sync=false name=appsink", node_id);
 
 	data->pipe = gst_parse_launch(pipeline, &err);
 	g_free(pipeline);
@@ -211,10 +211,6 @@ static void dbus_cb(GDBusConnection *connection,
 
 	GstElement* appsink = gst_bin_get_by_name(GST_BIN(data->pipe), "appsink");
 	gst_app_sink_set_callbacks(GST_APP_SINK(appsink), &appsink_cbs, data, NULL);
-
-	if (!obs_data_get_bool(data->settings, "sync_appsink"))
-		g_object_set(appsink, "sync", FALSE, NULL);
-
 	gst_object_unref(appsink);
 
 	GstBus* bus = gst_element_get_bus(data->pipe);
@@ -410,14 +406,11 @@ static void destroy(void* data)
 
 static void get_defaults(obs_data_t* settings)
 {
-	obs_data_set_default_bool(settings, "sync_appsink", false);
 }
 
 static obs_properties_t* get_properties(void* data)
 {
 	obs_properties_t* props = obs_properties_create();
-
-	obs_properties_add_bool(props, "sync_appsink", "Sync appsink to clock");
 
 	return props;
 }
