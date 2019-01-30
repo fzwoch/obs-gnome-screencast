@@ -31,6 +31,7 @@ typedef struct {
 	gchar* session_path;
 	obs_source_t* source;
 	obs_data_t* settings;
+	int64_t count;
 } data_t;
 
 static const char* get_name(void* type_data)
@@ -86,6 +87,8 @@ static GstFlowReturn new_sample(GstAppSink* appsink, gpointer user_data)
 	frame.data[0] = info.data + video_info.offset[0];
 	frame.data[1] = info.data + video_info.offset[1];
 	frame.data[2] = info.data + video_info.offset[2];
+
+	frame.timestamp = data->count++;
 
 	enum video_range_type range = VIDEO_RANGE_DEFAULT;
 	switch (video_info.colorimetry.range)
@@ -224,6 +227,8 @@ static void dbus_cb(GDBusConnection *connection,
 static void start(data_t* data)
 {
 	GError* err = NULL;
+
+	data->count = 0;
 
 	GDBusConnection* dbus = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &err);
 	if (err != NULL)
