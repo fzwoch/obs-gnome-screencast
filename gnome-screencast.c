@@ -96,7 +96,7 @@ static void start(data_t* data)
 {
 	GError* err = NULL;
 	gboolean capture_desktop = FALSE;
-	GdkRectangle rect = {};
+	GdkRectangle rect = {0};
 
 	gint screen = obs_data_get_int(data->settings, "screen");
 	if (screen >= gdk_display_get_n_monitors(gdk_display_get_default()))
@@ -105,7 +105,15 @@ static void start(data_t* data)
 	}
 	else
 	{
-		gdk_monitor_get_geometry(gdk_display_get_monitor(gdk_display_get_default(), screen), &rect);
+		GdkMonitor* monitor = gdk_display_get_monitor(gdk_display_get_default(), screen);
+
+		int scale_factor = gdk_monitor_get_scale_factor(monitor);
+		gdk_monitor_get_geometry(monitor, &rect);
+
+		rect.x *= scale_factor;
+		rect.y *= scale_factor;
+		rect.width *= scale_factor;
+		rect.height *= scale_factor;
 	}
 
 	if (g_file_test(obs_data_get_string(data->settings, "shm_socket"), G_FILE_TEST_EXISTS) == TRUE)
