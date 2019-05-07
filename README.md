@@ -50,3 +50,11 @@ $ ninja -C build
 
 $ sudo ninja -C build install
 ```
+
+### Dependencies
+
+On Fedora, the following dependencies may need to be installed:
+
+* meson (to build)
+* libgnome-devel (gdk-3.0)
+* gstreamer1-devel gstramer1-plugins-base-devel (gstreamer-1.0)
