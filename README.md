@@ -58,3 +58,16 @@ On Fedora, the following dependencies may need to be installed:
 * meson (to build)
 * libgnome-devel (gdk-3.0)
 * gstreamer1-devel gstramer1-plugins-base-devel (gstreamer-1.0)
+
+On Debian,
+
+```shell
+  sudo apt install meson libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev libobs-dev libgtk-3-dev pkg-config
+```
+
+then after the build, copy the shared object into the plugin directory. on a amd64 arch, it will be
+
+```shell
+  sudo cp build/gnome-screencast.so /usr/lib/x86_64-linux-gnu/obs-plugins
+```
+
