@@ -269,24 +269,31 @@ static void start(data_t* data)
 
 	data->session_path = g_strdup(session_path);
 
-	builder = g_variant_builder_new(G_VARIANT_TYPE_TUPLE);
-
-	g_variant_builder_add_value(builder, g_variant_new_string(""));
-	g_variant_builder_add_value(builder, g_variant_new_parsed("{'dummy' : <0>}"));
-
+#if 1
 	GVariant* stream_res = g_dbus_connection_call_sync(dbus,
 		"org.gnome.Mutter.ScreenCast",
 		session_path,
 		"org.gnome.Mutter.ScreenCast.Session",
 		"RecordMonitor",
-		g_variant_builder_end(builder),
+		g_variant_new_parsed("('', {'cursor-mode' : <1>})"),
 		NULL,
 		G_DBUS_CALL_FLAGS_NONE,
 		-1,
 		NULL,
 		&err);
-
-	g_variant_builder_unref(builder);
+#else
+	GVariant* stream_res = g_dbus_connection_call_sync(dbus,
+		"org.gnome.Mutter.ScreenCast",
+		session_path,
+		"org.gnome.Mutter.ScreenCast.Session",
+		"RecordWindow",
+		g_variant_new_parsed("({'window-id' : <0>},)"),
+		NULL,
+		G_DBUS_CALL_FLAGS_NONE,
+		-1,
+		NULL,
+		&err);
+#endif
 
 	if (err != NULL)
 	{
