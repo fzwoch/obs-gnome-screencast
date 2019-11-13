@@ -24,6 +24,8 @@
 #include <gst/app/app.h>
 #include <gst/video/video.h>
 
+#include <gdk/gdk.h>
+
 OBS_DECLARE_MODULE()
 
 typedef struct {
@@ -374,7 +376,12 @@ static void destroy(void *data)
 
 static void get_defaults(obs_data_t *settings)
 {
-	obs_data_set_default_string(settings, "connector", "");
+	GdkDisplay *display = gdk_display_get_default();
+	GdkScreen *screen = gdk_display_get_default_screen(display);
+
+	obs_data_set_default_string(settings, "connector",
+				    gdk_screen_get_monitor_plug_name(screen,
+								     0));
 	obs_data_set_default_bool(settings, "cursor", true);
 }
 
@@ -382,8 +389,19 @@ static obs_properties_t *get_properties(void *data)
 {
 	obs_properties_t *props = obs_properties_create();
 
-	obs_properties_add_text(props, "connector", "Connector",
-				OBS_TEXT_DEFAULT);
+	obs_property_t *prop = obs_properties_add_list(props, "connector",
+						       "Connector",
+						       OBS_COMBO_TYPE_LIST,
+						       OBS_COMBO_FORMAT_STRING);
+
+	GdkDisplay *display = gdk_display_get_default();
+	GdkScreen *screen = gdk_display_get_default_screen(display);
+
+	for (int i = 0; i < gdk_display_get_n_monitors(display); i++) {
+		const gchar *tmp = gdk_screen_get_monitor_plug_name(screen, i);
+		obs_property_list_add_string(prop, tmp, tmp);
+	}
+
 	obs_properties_add_bool(props, "cursor", "Draw mouse cursor");
 
 	return props;
