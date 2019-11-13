@@ -254,7 +254,8 @@ static void start(data_t *data)
 		dbus, "org.gnome.Mutter.ScreenCast", session_path,
 		"org.gnome.Mutter.ScreenCast.Session", "RecordMonitor",
 		g_variant_new_parsed(
-			"('', {'cursor-mode' : <%u>})",
+			"(%s, {'cursor-mode' : <%u>})",
+			obs_data_get_string(data->settings, "connector"),
 			obs_data_get_bool(data->settings, "cursor") ? 1 : 0),
 		NULL, G_DBUS_CALL_FLAGS_NONE, -1, NULL, &err);
 #else
@@ -366,6 +367,7 @@ static void destroy(void *data)
 
 static void get_defaults(obs_data_t *settings)
 {
+	obs_data_set_default_string(settings, "connector", "");
 	obs_data_set_default_bool(settings, "cursor", true);
 }
 
@@ -373,6 +375,7 @@ static obs_properties_t *get_properties(void *data)
 {
 	obs_properties_t *props = obs_properties_create();
 
+	obs_properties_add_text(props, "connector", "Connector", OBS_TEXT_DEFAULT);
 	obs_properties_add_bool(props, "cursor", "Draw mouse cursor");
 
 	return props;
