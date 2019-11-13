@@ -219,6 +219,8 @@ static void dbus_cb(GDBusConnection *connection, const gchar *sender_name,
 static void start(data_t *data)
 {
 	GError *err = NULL;
+	GVariant *stream_res = NULL;
+	GVariant *session_res = NULL;
 
 	data->count = 0;
 
@@ -227,10 +229,10 @@ static void start(data_t *data)
 		blog(LOG_ERROR, "Cannot connect to DBus: %s", err->message);
 		g_error_free(err);
 
-		return;
+		goto fail;
 	}
 
-	GVariant *session_res = g_dbus_connection_call_sync(
+	session_res = g_dbus_connection_call_sync(
 		dbus, "org.gnome.Mutter.ScreenCast",
 		"/org/gnome/Mutter/ScreenCast", "org.gnome.Mutter.ScreenCast",
 		"CreateSession", g_variant_new_parsed("({'dummy' : <0>},)"),
@@ -241,7 +243,7 @@ static void start(data_t *data)
 		     err->message);
 		g_error_free(err);
 
-		return;
+		goto fail;
 	}
 
 	gchar *session_path;
@@ -250,7 +252,7 @@ static void start(data_t *data)
 	data->session_path = g_strdup(session_path);
 
 #if 1
-	GVariant *stream_res = g_dbus_connection_call_sync(
+	stream_res = g_dbus_connection_call_sync(
 		dbus, "org.gnome.Mutter.ScreenCast", session_path,
 		"org.gnome.Mutter.ScreenCast.Session", "RecordMonitor",
 		g_variant_new_parsed(
@@ -259,7 +261,7 @@ static void start(data_t *data)
 			obs_data_get_bool(data->settings, "cursor") ? 1 : 0),
 		NULL, G_DBUS_CALL_FLAGS_NONE, -1, NULL, &err);
 #else
-	GVariant *stream_res = g_dbus_connection_call_sync(
+	stream_res = g_dbus_connection_call_sync(
 		dbus, "org.gnome.Mutter.ScreenCast", session_path,
 		"org.gnome.Mutter.ScreenCast.Session", "RecordWindow",
 		g_variant_new_parsed(
@@ -273,7 +275,7 @@ static void start(data_t *data)
 		     err->message);
 		g_error_free(err);
 
-		return;
+		goto fail;
 	}
 
 	gchar *stream_path;
@@ -295,18 +297,23 @@ static void start(data_t *data)
 				    "Start", NULL, NULL, G_DBUS_CALL_FLAGS_NONE,
 				    -1, NULL, &err);
 
-	g_variant_unref(session_res);
-	g_variant_unref(stream_res);
-
 	if (err != NULL) {
 		blog(LOG_ERROR, "Cannot call Start() on DBus: %s",
 		     err->message);
 		g_error_free(err);
 
-		return;
+		goto fail;
 	}
 
-	g_object_unref(dbus);
+fail:
+	if (session_res != NULL)
+		g_variant_unref(session_res);
+
+	if (stream_res != NULL)
+		g_variant_unref(stream_res);
+
+	if (dbus != NULL)
+		g_object_unref(dbus);
 }
 
 static void *create(obs_data_t *settings, obs_source_t *source)
@@ -375,7 +382,8 @@ static obs_properties_t *get_properties(void *data)
 {
 	obs_properties_t *props = obs_properties_create();
 
-	obs_properties_add_text(props, "connector", "Connector", OBS_TEXT_DEFAULT);
+	obs_properties_add_text(props, "connector", "Connector",
+				OBS_TEXT_DEFAULT);
 	obs_properties_add_bool(props, "cursor", "Draw mouse cursor");
 
 	return props;
