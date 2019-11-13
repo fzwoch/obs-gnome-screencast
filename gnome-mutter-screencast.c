@@ -401,9 +401,12 @@ static obs_properties_t *get_properties(void *data)
 		gchar tmp[1024];
 		GdkMonitor *monitor = gdk_display_get_monitor(display, i);
 
-		g_snprintf(tmp, sizeof(tmp), "%s (%s)", gdk_monitor_get_model(monitor), gdk_screen_get_monitor_plug_name(screen, i));
+		g_snprintf(tmp, sizeof(tmp), "%s (%s)",
+			   gdk_monitor_get_model(monitor),
+			   gdk_screen_get_monitor_plug_name(screen, i));
 
-		obs_property_list_add_string(prop, tmp, gdk_screen_get_monitor_plug_name(screen, i));
+		obs_property_list_add_string(
+			prop, tmp, gdk_screen_get_monitor_plug_name(screen, i));
 	}
 
 	obs_properties_add_bool(props, "cursor", "Draw mouse cursor");
