@@ -18,14 +18,7 @@
 # along with obs-gnome-mutter-screencast. If not, see <http://www.gnu.org/licenses/>.
 #
 
-project('gnome-mutter-screencast', 'c',
-  meson_version : '>=0.46'
-)
-
-link_args = []
-if meson.get_compiler('c').has_link_argument('-static-libgcc')
-  link_args = '-static-libgcc'
-endif
+project('gnome-mutter-screencast', 'c')
 
 shared_library('gnome-mutter-screencast',
   'gnome-mutter-screencast.c',
@@ -38,7 +31,6 @@ shared_library('gnome-mutter-screencast',
     dependency('gstreamer-video-1.0'),
     dependency('gdk-3.0'),
   ],
-  link_args : link_args,
   install : true,
   install_dir : 'lib/obs-plugins'
 )
