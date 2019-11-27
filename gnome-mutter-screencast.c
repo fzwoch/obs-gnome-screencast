@@ -130,8 +130,10 @@ static GstFlowReturn new_sample(GstAppSink *appsink, gpointer user_data)
 		frame.format = VIDEO_FORMAT_NV12;
 		break;
 	case GST_VIDEO_FORMAT_BGRx:
-		frame.format = VIDEO_FORMAT_BGRX;
-		break;
+		// we usually get BGRx, however the alpha channel is set.
+		// why not just fall through and use it.
+		//frame.format = VIDEO_FORMAT_BGRX;
+		//break;
 	case GST_VIDEO_FORMAT_BGRA:
 		frame.format = VIDEO_FORMAT_BGRA;
 		break;
