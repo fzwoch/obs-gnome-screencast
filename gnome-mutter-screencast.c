@@ -375,6 +375,8 @@ static void stop(data_t *data)
 	data->session_path = NULL;
 
 	g_object_unref(dbus);
+
+	obs_source_output_video(data->source, NULL);
 }
 
 static void destroy(void *data)
