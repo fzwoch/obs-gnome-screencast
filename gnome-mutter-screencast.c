@@ -258,7 +258,10 @@ static void start(data_t *data)
 
 	data->session_path = g_strdup(session_path);
 
-	if (obs_data_get_int(data->settings, "window-id") == 0) {
+	guint64 window_id = g_ascii_strtoull(
+		obs_data_get_string(data->settings, "window-id"), NULL, 0);
+
+	if (window_id == 0) {
 		stream_res = g_dbus_connection_call_sync(
 			dbus, "org.gnome.Mutter.ScreenCast", session_path,
 			"org.gnome.Mutter.ScreenCast.Session", "RecordMonitor",
@@ -276,7 +279,7 @@ static void start(data_t *data)
 			"org.gnome.Mutter.ScreenCast.Session", "RecordWindow",
 			g_variant_new_parsed(
 				"({'window-id' : <%t>, 'cursor-mode' : <%u>},)",
-				obs_data_get_int(data->settings, "window-id"),
+				window_id,
 				obs_data_get_bool(data->settings, "cursor")
 					? 1
 					: 0),
@@ -395,7 +398,7 @@ static void get_defaults(obs_data_t *settings)
 	obs_data_set_default_string(settings, "connector",
 				    gdk_screen_get_monitor_plug_name(screen,
 								     0));
-	obs_data_set_default_int(settings, "window-id", 0);
+	obs_data_set_default_string(settings, "window-id", "");
 	obs_data_set_default_bool(settings, "cursor", true);
 }
 
@@ -423,8 +426,8 @@ static obs_properties_t *get_properties(void *data)
 			prop, tmp, gdk_screen_get_monitor_plug_name(screen, i));
 	}
 
-	obs_properties_add_int(props, "window-id", "Window ID", INT_MIN,
-			       INT_MAX, 1);
+	obs_properties_add_text(props, "window-id", "Window ID",
+				OBS_TEXT_DEFAULT);
 	obs_properties_add_bool(props, "cursor", "Draw mouse cursor");
 
 	return props;
