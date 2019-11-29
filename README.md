@@ -19,6 +19,16 @@ do the right thing then.
 
 [1]: https://obsproject.com/
 
+## Getting Window ID
+
+Currently there is no (knonw) way to obtain mutter's ID for a window other than through Looking Glass, to obtain the ID:
+  1. Press `ALT+F2` in the window that appears and type `lg` (Looking Glass)
+  2. Click on the "Windows" tab in the upper right corner
+  3. Select the *Window Name* at the top (Not the "App" section)
+  4. Press "Insert" in the upper right corner
+  5. Go back to the "Evaluator" tab and look at the last entry, it should have something like `r(n) = [...]`
+  6. type `r(<number>).get_id()`
+
 ## Known issues
 
 GNOME Screen Cast seems to be limited to a single concurrent session.
@@ -26,6 +36,7 @@ GNOME Screen Cast seems to be limited to a single concurrent session.
 The mouse cursor is currently very choppy. The reason for this is that the
 cursor drawing is done at the GNOME Screen Cast implementation but they only
 update cursor coordinates every 100ms.
+
 
 ## Todo
 
