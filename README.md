@@ -7,16 +7,6 @@ GNOME Screen Cast works for all GNOME sessions regardless of the compositor
 being used. Basically saying that the main purpose of this plugin is to capture
 screens under Wayland sessions where the X11 capture falls short.
 
-The implementation is kind of weird. Not sure if there are better ways - but the
-GNOME Screen Cast normally insist of writing to a file. Here we trick the system
-to write to a SHM socket instead which we then read and pass to OBS.
-
-I'm not sure how latency or audio/video sync is handled by OBS. ~~But as soon as
-a frame is read it gets a time stamp of `os_gettime_ns()` which felt like the
-best bet for a live source.~~ Since I have no idea what the master clock is each
-frame gets a time stamp of it's frame number. OBS Studio seems smart enough to
-do the right thing then.
-
 [1]: https://obsproject.com/
 
 ## Getting Window ID
@@ -38,25 +28,10 @@ https://github.com/flatpak/xdg-desktop-portal/blob/master/data/org.freedesktop.p
 Once KDE/GNOME and distributions have picked this up we could modify the plugin
 slightly to have unified platform support.
 
+See: https://gitlab.gnome.org/feaneron/obs-xdg-portal/
+
+
 ## Build
 
-I don't know CMake so you will have to deal with meson instead. Assuming that
-all dependencies are installed correctly this should do the trick:
-
-```shell
-$ meson --buildtype=release build
-$ ninja -C build
-
-# optional; for installing the plugin into
-# '/usr/local/lib/obs-plugins'
-
-$ sudo ninja -C build install
-```
-
-### Dependencies
-
-On Fedora, the following dependencies may need to be installed:
-
-* meson (to build)
-* libgnome-devel (gdk-3.0)
-* gstreamer1-devel gstreamer1-plugins-base-devel (gstreamer-1.0)
+Refer to the `Dockerfile` and `.gitlab-ci.yml` files on how to get a
+development worksapce and how to build the plugin.
