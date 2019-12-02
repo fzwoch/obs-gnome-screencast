@@ -394,12 +394,13 @@ static void get_defaults(obs_data_t *settings)
 {
 	GdkDisplay *display = gdk_display_get_default();
 	GdkScreen *screen = gdk_display_get_default_screen(display);
+	gchar *plug_name = gdk_screen_get_monitor_plug_name(screen, 0);
 
-	obs_data_set_default_string(settings, "connector",
-				    gdk_screen_get_monitor_plug_name(screen,
-								     0));
+	obs_data_set_default_string(settings, "connector", plug_name);
 	obs_data_set_default_string(settings, "window-id", "");
 	obs_data_set_default_bool(settings, "cursor", true);
+
+	g_free(plug_name);
 }
 
 static obs_properties_t *get_properties(void *data)
@@ -416,14 +417,15 @@ static obs_properties_t *get_properties(void *data)
 
 	for (int i = 0; i < gdk_display_get_n_monitors(display); i++) {
 		gchar tmp[1024];
+		gchar *plug_name = gdk_screen_get_monitor_plug_name(screen, i);
 		GdkMonitor *monitor = gdk_display_get_monitor(display, i);
 
 		g_snprintf(tmp, sizeof(tmp), "%s (%s)",
-			   gdk_monitor_get_model(monitor),
-			   gdk_screen_get_monitor_plug_name(screen, i));
+			   gdk_monitor_get_model(monitor), plug_name);
 
-		obs_property_list_add_string(
-			prop, tmp, gdk_screen_get_monitor_plug_name(screen, i));
+		obs_property_list_add_string(prop, tmp, plug_name);
+
+		g_free(plug_name);
 	}
 
 	obs_properties_add_text(props, "window-id", "Window ID",
