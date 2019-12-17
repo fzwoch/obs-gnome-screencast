@@ -360,7 +360,7 @@ static void stop(data_t *data)
 		blog(LOG_ERROR, "Cannot connect to DBus: %s", err->message);
 		g_error_free(err);
 
-		return;
+		goto fail;
 	}
 
 	g_dbus_connection_call_sync(dbus, "org.gnome.Mutter.ScreenCast",
@@ -373,9 +373,10 @@ static void stop(data_t *data)
 		blog(LOG_ERROR, "Cannot call Stop() on DBus: %s", err->message);
 		g_error_free(err);
 
-		return;
+		goto fail;
 	}
 
+fail:
 	g_free(data->session_path);
 	data->session_path = NULL;
 
