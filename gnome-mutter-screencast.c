@@ -380,7 +380,8 @@ fail:
 	g_free(data->session_path);
 	data->session_path = NULL;
 
-	g_object_unref(dbus);
+	if (dbus != NULL)
+		g_object_unref(dbus);
 
 	obs_source_output_video(data->source, NULL);
 }
