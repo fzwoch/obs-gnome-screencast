@@ -8,6 +8,6 @@ build:
     - ninja -C build
     - cp build/gnome-mutter-screencast.so .
   artifacts:
-    name: gnome-mutter-screecast
+    name: gnome-mutter-screencast
     paths:
       - gnome-mutter-screencast.so
