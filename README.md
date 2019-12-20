@@ -7,6 +7,9 @@ GNOME Screen Cast works for all GNOME sessions regardless of the compositor
 being used. Basically saying that the main purpose of this plugin is to capture
 screens under Wayland sessions where the X11 capture falls short.
 
+You need to have GNOME Screen Cast application installed as well as the
+GStreamer pipewire elements.
+
 [1]: https://obsproject.com/
 
 ## Getting Window ID
