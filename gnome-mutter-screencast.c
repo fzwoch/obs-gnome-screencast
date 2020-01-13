@@ -395,39 +395,51 @@ static void destroy(void *data)
 static void get_defaults(obs_data_t *settings)
 {
 	GdkDisplay *display = gdk_display_get_default();
-	GdkScreen *screen = gdk_display_get_default_screen(display);
-	gchar *plug_name = gdk_screen_get_monitor_plug_name(screen, 0);
+	gchar *plug_name = "";
+
+	if (display != NULL) {
+		GdkScreen *screen = gdk_display_get_default_screen(display);
+		plug_name = gdk_screen_get_monitor_plug_name(screen, 0);
+	}
 
 	obs_data_set_default_string(settings, "connector", plug_name);
 	obs_data_set_default_string(settings, "window-id", "");
 	obs_data_set_default_bool(settings, "cursor", true);
 
-	g_free(plug_name);
+	if (g_strcmp0(plug_name, "") != 0)
+		g_free(plug_name);
 }
 
 static obs_properties_t *get_properties(void *data)
 {
 	obs_properties_t *props = obs_properties_create();
 
-	obs_property_t *prop = obs_properties_add_list(props, "connector",
-						       "Connector",
-						       OBS_COMBO_TYPE_LIST,
-						       OBS_COMBO_FORMAT_STRING);
-
 	GdkDisplay *display = gdk_display_get_default();
-	GdkScreen *screen = gdk_display_get_default_screen(display);
 
-	for (int i = 0; i < gdk_display_get_n_monitors(display); i++) {
-		gchar tmp[1024];
-		gchar *plug_name = gdk_screen_get_monitor_plug_name(screen, i);
-		GdkMonitor *monitor = gdk_display_get_monitor(display, i);
+	if (display == NULL) {
+		obs_properties_add_text(props, "connector", "Connector",
+					OBS_TEXT_DEFAULT);
+	} else {
+		obs_property_t *prop = obs_properties_add_list(
+			props, "connector", "Connector", OBS_COMBO_TYPE_LIST,
+			OBS_COMBO_FORMAT_STRING);
 
-		g_snprintf(tmp, sizeof(tmp), "%s (%s)",
-			   gdk_monitor_get_model(monitor), plug_name);
+		GdkScreen *screen = gdk_display_get_default_screen(display);
 
-		obs_property_list_add_string(prop, tmp, plug_name);
+		for (int i = 0; i < gdk_display_get_n_monitors(display); i++) {
+			gchar tmp[1024];
+			gchar *plug_name =
+				gdk_screen_get_monitor_plug_name(screen, i);
+			GdkMonitor *monitor =
+				gdk_display_get_monitor(display, i);
 
-		g_free(plug_name);
+			g_snprintf(tmp, sizeof(tmp), "%s (%s)",
+				   gdk_monitor_get_model(monitor), plug_name);
+
+			obs_property_list_add_string(prop, tmp, plug_name);
+
+			g_free(plug_name);
+		}
 	}
 
 	obs_properties_add_text(props, "window-id", "Window ID",
