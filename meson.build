@@ -32,5 +32,5 @@ shared_library('gnome-mutter-screencast',
     dependency('gdk-3.0'),
   ],
   install : true,
-  install_dir : 'lib/obs-plugins'
+  install_dir : get_option('libdir') + '/obs-plugins'
 )
