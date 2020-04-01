@@ -34,6 +34,7 @@ typedef struct {
 	obs_source_t *source;
 	obs_data_t *settings;
 	int64_t count;
+	guint subscribe_id;
 } data_t;
 
 static const char *get_name(void *type_data)
@@ -297,10 +298,9 @@ static void start(data_t *data)
 	gchar *stream_path;
 	g_variant_get(stream_res, "(o)", &stream_path, NULL);
 
-	g_dbus_connection_signal_subscribe(dbus, NULL, NULL, "Closed",
-					   session_path, NULL,
-					   G_DBUS_CALL_FLAGS_NONE,
-					   dbus_stream_closed_cb, data, NULL);
+	data->subscribe_id = g_dbus_connection_signal_subscribe(
+		dbus, NULL, NULL, "Closed", session_path, NULL,
+		G_DBUS_CALL_FLAGS_NONE, dbus_stream_closed_cb, data, NULL);
 
 	g_dbus_connection_signal_subscribe(dbus, NULL, NULL,
 					   "PipeWireStreamAdded", stream_path,
@@ -362,6 +362,9 @@ static void stop(data_t *data)
 
 		goto fail;
 	}
+
+	g_dbus_connection_signal_unsubscribe(dbus, data->subscribe_id);
+	data->subscribe_id = 0;
 
 	g_dbus_connection_call_sync(dbus, "org.gnome.Mutter.ScreenCast",
 				    data->session_path,
