@@ -1,6 +1,6 @@
 /*
  * obs-gnome-mutter-screencast. OBS Studio source plugin.
- * Copyright (C) 2019 Florian Zwoch <fzwoch@gmail.com>
+ * Copyright (C) 2019-2020 Florian Zwoch <fzwoch@gmail.com>
  *
  * This file is part of obs-gnome-mutter-screencast.
  *
@@ -23,8 +23,7 @@
 #include <gst/gst.h>
 #include <gst/app/app.h>
 #include <gst/video/video.h>
-
-#include <gdk/gdk.h>
+#include <stdio.h>
 
 OBS_DECLARE_MODULE()
 
@@ -36,6 +35,58 @@ typedef struct {
 	int64_t count;
 	guint subscribe_id;
 } data_t;
+
+static gchar **get_plug_names()
+{
+	GError *err = NULL;
+	GDir *dir = g_dir_open("/sys/class/drm", 0, &err);
+	if (err != NULL) {
+		blog(LOG_ERROR, err->message);
+		g_error_free(err);
+		return NULL;
+	}
+
+	gchar **plugs = g_new0(gchar *, 32);
+	gint num_plugs = 0;
+
+	for (;;) {
+		gchar plug[32];
+		const gchar *name = g_dir_read_name(dir);
+		if (name == NULL)
+			break;
+
+		int res = sscanf(name, "card%*d-%31s", plug);
+		if (res != 1)
+			continue;
+
+		gchar *contents = NULL;
+		gchar *filename =
+			g_strdup_printf("/sys/class/drm/%s/status", name);
+
+		gboolean ret =
+			g_file_get_contents(filename, &contents, NULL, NULL);
+
+		g_free(filename);
+
+		if (ret == FALSE)
+			continue;
+
+		if (g_strcmp0("connected\n", contents) != 0) {
+			g_free(contents);
+			continue;
+		}
+		g_free(contents);
+
+		plugs[num_plugs++] = g_strdup(plug);
+
+		if (num_plugs >= 32)
+			break;
+	}
+
+	g_dir_close(dir);
+
+	return plugs;
+}
 
 static const char *get_name(void *type_data)
 {
@@ -397,53 +448,33 @@ static void destroy(void *data)
 
 static void get_defaults(obs_data_t *settings)
 {
-	GdkDisplay *display = gdk_display_get_default();
-	gchar *plug_name = "";
+	gchar **plug_names = get_plug_names();
+	if (plug_names[0] != NULL)
+		obs_data_set_default_string(settings, "connector",
+					    plug_names[0]);
+	g_strfreev(plug_names);
 
-	if (display != NULL) {
-		GdkScreen *screen = gdk_display_get_default_screen(display);
-		plug_name = gdk_screen_get_monitor_plug_name(screen, 0);
-	}
-
-	obs_data_set_default_string(settings, "connector", plug_name);
 	obs_data_set_default_string(settings, "window-id", "");
 	obs_data_set_default_bool(settings, "cursor", true);
-
-	if (g_strcmp0(plug_name, "") != 0)
-		g_free(plug_name);
 }
 
 static obs_properties_t *get_properties(void *data)
 {
 	obs_properties_t *props = obs_properties_create();
+	obs_property_t *prop = obs_properties_add_list(props, "connector",
+						       "Connector",
+						       OBS_COMBO_TYPE_LIST,
+						       OBS_COMBO_FORMAT_STRING);
 
-	GdkDisplay *display = gdk_display_get_default();
+	gchar **plug_names = get_plug_names();
+	for (int i = 0;; i++) {
+		if (plug_names[i] == NULL)
+			break;
 
-	if (display == NULL) {
-		obs_properties_add_text(props, "connector", "Connector",
-					OBS_TEXT_DEFAULT);
-	} else {
-		obs_property_t *prop = obs_properties_add_list(
-			props, "connector", "Connector", OBS_COMBO_TYPE_LIST,
-			OBS_COMBO_FORMAT_STRING);
-
-		GdkScreen *screen = gdk_display_get_default_screen(display);
-
-		for (int i = 0; i < gdk_display_get_n_monitors(display); i++) {
-			gchar tmp[1024];
-			gchar *plug_name =
-				gdk_screen_get_monitor_plug_name(screen, i);
-			GdkMonitor *monitor =
-				gdk_display_get_monitor(display, i);
-
-			g_snprintf(tmp, sizeof(tmp), "%s (%s)",
-				   gdk_monitor_get_model(monitor), plug_name);
-
-			obs_property_list_add_string(prop, tmp, plug_name);
-
-			g_free(plug_name);
-		}
+		obs_property_list_add_string(prop, plug_names[i],
+					     plug_names[1]);
 	}
+	g_strfreev(plug_names);
 
 	obs_properties_add_text(props, "window-id", "Window ID",
 				OBS_TEXT_DEFAULT);

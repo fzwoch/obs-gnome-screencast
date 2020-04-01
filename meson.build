@@ -1,6 +1,6 @@
 #
 # obs-gnome-mutter-screencast. OBS Studio source plugin.
-# Copyright (C) 2019 Florian Zwoch <fzwoch@gmail.com>
+# Copyright (C) 2019-2020 Florian Zwoch <fzwoch@gmail.com>
 #
 # This file is part of obs-gnome-mutter-screencast.
 #
@@ -29,7 +29,6 @@ shared_library('gnome-mutter-screencast',
     dependency('gstreamer-1.0'),
     dependency('gstreamer-app-1.0'),
     dependency('gstreamer-video-1.0'),
-    dependency('gdk-3.0'),
   ],
   install : true,
   install_dir : get_option('libdir') + '/obs-plugins'
