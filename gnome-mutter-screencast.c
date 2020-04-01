@@ -39,15 +39,15 @@ typedef struct {
 static gchar **get_plug_names()
 {
 	GError *err = NULL;
+	gchar **plugs = g_new0(gchar *, 32);
+	gint num_plugs = 0;
+
 	GDir *dir = g_dir_open("/sys/class/drm", 0, &err);
 	if (err != NULL) {
 		blog(LOG_ERROR, err->message);
 		g_error_free(err);
-		return NULL;
+		return plugs;
 	}
-
-	gchar **plugs = g_new0(gchar *, 32);
-	gint num_plugs = 0;
 
 	for (;;) {
 		gchar plug[32];
