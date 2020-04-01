@@ -472,7 +472,7 @@ static obs_properties_t *get_properties(void *data)
 			break;
 
 		obs_property_list_add_string(prop, plug_names[i],
-					     plug_names[1]);
+					     plug_names[i]);
 	}
 	g_strfreev(plug_names);
 
