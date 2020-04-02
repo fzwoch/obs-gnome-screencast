@@ -37,4 +37,4 @@ See: https://gitlab.gnome.org/feaneron/obs-xdg-portal/
 ## Build
 
 Refer to the `Dockerfile` and `.gitlab-ci.yml` files on how to get a
-development worksapce and how to build the plugin.
+development workspace and how to build the plugin.
