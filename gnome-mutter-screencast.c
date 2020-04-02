@@ -251,6 +251,8 @@ static void dbus_stream_closed_cb(GDBusConnection *connection,
 		gst_object_unref(data->pipe);
 		data->pipe = NULL;
 	}
+
+	obs_source_output_video(data->source, NULL);
 }
 
 static void dbus_cb(GDBusConnection *connection, const gchar *sender_name,
