@@ -1,6 +1,6 @@
 /*
  * obs-gnome-mutter-screencast. OBS Studio source plugin.
- * Copyright (C) 2019 Florian Zwoch <fzwoch@gmail.com>
+ * Copyright (C) 2019-2020 Florian Zwoch <fzwoch@gmail.com>
  *
  * This file is part of obs-gnome-mutter-screencast.
  *
@@ -24,9 +24,12 @@
 #include <gst/app/app.h>
 #include <gst/video/video.h>
 
-#include <gdk/gdk.h>
-
 OBS_DECLARE_MODULE()
+
+typedef struct {
+	gchar connector[256];
+	gchar monitor[256];
+} plugs_t;
 
 typedef struct {
 	GstElement *pipe;
@@ -35,7 +38,74 @@ typedef struct {
 	obs_data_t *settings;
 	int64_t count;
 	guint subscribe_id;
+	plugs_t plugs[32];
+	int num_plugs;
 } data_t;
+
+static void update_plug_names(data_t *data)
+{
+	GError *err = NULL;
+
+	memset(data->plugs, 0, sizeof(data->plugs));
+	data->num_plugs = 0;
+
+	GDBusConnection *dbus = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &err);
+	if (err != NULL) {
+		blog(LOG_ERROR, "Cannot connect to DBus: %s", err->message);
+		g_error_free(err);
+
+		goto fail;
+	}
+
+	GVariant *display_config = g_dbus_connection_call_sync(
+		dbus, "org.gnome.Mutter.DisplayConfig",
+		"/org/gnome/Mutter/DisplayConfig",
+		"org.gnome.Mutter.DisplayConfig", "GetCurrentState", NULL, NULL,
+		G_DBUS_CALL_FLAGS_NONE, -1, NULL, &err);
+
+	if (err != NULL) {
+		blog(LOG_ERROR, "Cannot call GetCurrentState() on DBus: %s",
+		     err->message);
+		g_error_free(err);
+
+		goto fail;
+	}
+
+	GVariant *list;
+
+	g_variant_get(
+		display_config,
+		"(u@a((ssss)a(siiddada{sv})a{sv})a(iiduba(ssss)a{sv})a{sv})",
+		NULL, &list, NULL, NULL);
+
+	GVariantIter iter;
+	g_variant_iter_init(&iter, list);
+
+	gchar *connector;
+	gchar *monitor;
+
+	while (g_variant_iter_loop(&iter, "((ssss)a(siiddada{sv})a{sv})",
+				   &connector, NULL, &monitor, NULL, NULL,
+				   NULL)) {
+		g_strlcpy(data->plugs[data->num_plugs].connector, connector,
+			  sizeof(data->plugs[data->num_plugs].connector));
+		g_strlcpy(data->plugs[data->num_plugs].monitor, monitor,
+			  sizeof(data->plugs[data->num_plugs].monitor));
+
+		data->num_plugs++;
+
+		if (data->num_plugs >= sizeof(data->plugs) / sizeof(plugs_t)) {
+			break;
+		}
+	}
+
+	g_variant_unref(list);
+	g_variant_unref(display_config);
+
+fail:
+	if (dbus != NULL)
+		g_object_unref(dbus);
+}
 
 static const char *get_name(void *type_data)
 {
@@ -288,7 +358,8 @@ static void start(data_t *data)
 	}
 
 	if (err != NULL) {
-		blog(LOG_ERROR, "Cannot call RecordMonitor() on DBus: %s",
+		blog(LOG_ERROR, "Cannot call %s on DBus: %s",
+		     window_id == 0 ? "RecordMonitor()" : "RecordWindow()",
 		     err->message);
 		g_error_free(err);
 
@@ -397,52 +468,28 @@ static void destroy(void *data)
 
 static void get_defaults(obs_data_t *settings)
 {
-	GdkDisplay *display = gdk_display_get_default();
-	gchar *plug_name = "";
-
-	if (display != NULL) {
-		GdkScreen *screen = gdk_display_get_default_screen(display);
-		plug_name = gdk_screen_get_monitor_plug_name(screen, 0);
-	}
-
-	obs_data_set_default_string(settings, "connector", plug_name);
+	obs_data_set_default_string(settings, "connector", "");
 	obs_data_set_default_string(settings, "window-id", "");
 	obs_data_set_default_bool(settings, "cursor", true);
-
-	if (g_strcmp0(plug_name, "") != 0)
-		g_free(plug_name);
 }
 
-static obs_properties_t *get_properties(void *data)
+static obs_properties_t *get_properties(void *p)
 {
+	data_t *data = (data_t *)p;
+
 	obs_properties_t *props = obs_properties_create();
+	obs_property_t *prop = obs_properties_add_list(props, "connector",
+						       "Connector",
+						       OBS_COMBO_TYPE_LIST,
+						       OBS_COMBO_FORMAT_STRING);
 
-	GdkDisplay *display = gdk_display_get_default();
-
-	if (display == NULL) {
-		obs_properties_add_text(props, "connector", "Connector",
-					OBS_TEXT_DEFAULT);
-	} else {
-		obs_property_t *prop = obs_properties_add_list(
-			props, "connector", "Connector", OBS_COMBO_TYPE_LIST,
-			OBS_COMBO_FORMAT_STRING);
-
-		GdkScreen *screen = gdk_display_get_default_screen(display);
-
-		for (int i = 0; i < gdk_display_get_n_monitors(display); i++) {
-			gchar tmp[1024];
-			gchar *plug_name =
-				gdk_screen_get_monitor_plug_name(screen, i);
-			GdkMonitor *monitor =
-				gdk_display_get_monitor(display, i);
-
-			g_snprintf(tmp, sizeof(tmp), "%s (%s)",
-				   gdk_monitor_get_model(monitor), plug_name);
-
-			obs_property_list_add_string(prop, tmp, plug_name);
-
-			g_free(plug_name);
-		}
+	update_plug_names(data);
+	for (int i = 0; i < data->num_plugs; i++) {
+		gchar *tmp = g_strdup_printf("%s (%s)", data->plugs[i].monitor,
+					     data->plugs[i].connector);
+		obs_property_list_add_string(prop, tmp,
+					     data->plugs[i].connector);
+		g_free(tmp);
 	}
 
 	obs_properties_add_text(props, "window-id", "Window ID",
