@@ -23,9 +23,13 @@
 #include <gst/gst.h>
 #include <gst/app/app.h>
 #include <gst/video/video.h>
-#include <stdio.h>
 
 OBS_DECLARE_MODULE()
+
+typedef struct {
+	gchar connector[256];
+	gchar monitor[256];
+} plugs_t;
 
 typedef struct {
 	GstElement *pipe;
@@ -34,58 +38,73 @@ typedef struct {
 	obs_data_t *settings;
 	int64_t count;
 	guint subscribe_id;
+	plugs_t plugs[32];
+	int num_plugs;
 } data_t;
 
-static gchar **get_plug_names()
+static void update_plug_names(data_t *data)
 {
 	GError *err = NULL;
-	gchar **plugs = g_new0(gchar *, 32);
-	gint num_plugs = 0;
 
-	GDir *dir = g_dir_open("/sys/class/drm", 0, &err);
+	memset(data->plugs, 0, sizeof(data->plugs));
+	data->num_plugs = 0;
+
+	GDBusConnection *dbus = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &err);
 	if (err != NULL) {
-		blog(LOG_ERROR, err->message);
+		blog(LOG_ERROR, "Cannot connect to DBus: %s", err->message);
 		g_error_free(err);
-		return plugs;
+
+		goto fail;
 	}
 
-	for (;;) {
-		gchar plug[32];
-		const gchar *name = g_dir_read_name(dir);
-		if (name == NULL)
+	GVariant *display_config = g_dbus_connection_call_sync(
+		dbus, "org.gnome.Mutter.DisplayConfig",
+		"/org/gnome/Mutter/DisplayConfig",
+		"org.gnome.Mutter.DisplayConfig", "GetCurrentState", NULL, NULL,
+		G_DBUS_CALL_FLAGS_NONE, -1, NULL, &err);
+
+	if (err != NULL) {
+		blog(LOG_ERROR, "Cannot call GetCurrentState() on DBus: %s",
+		     err->message);
+		g_error_free(err);
+
+		goto fail;
+	}
+
+	GVariant *list;
+
+	g_variant_get(
+		display_config,
+		"(u@a((ssss)a(siiddada{sv})a{sv})a(iiduba(ssss)a{sv})a{sv})",
+		NULL, &list, NULL, NULL);
+
+	GVariantIter iter;
+	g_variant_iter_init(&iter, list);
+
+	gchar *connector;
+	gchar *monitor;
+
+	while (g_variant_iter_loop(&iter, "((ssss)a(siiddada{sv})a{sv})",
+				   &connector, NULL, &monitor, NULL, NULL,
+				   NULL)) {
+		g_strlcpy(data->plugs[data->num_plugs].connector, connector,
+			  sizeof(data->plugs[data->num_plugs].connector));
+		g_strlcpy(data->plugs[data->num_plugs].monitor, monitor,
+			  sizeof(data->plugs[data->num_plugs].monitor));
+
+		data->num_plugs++;
+
+		if (data->num_plugs >= sizeof(data->plugs) / sizeof(plugs_t)) {
 			break;
-
-		int res = sscanf(name, "card%*d-%31s", plug);
-		if (res != 1)
-			continue;
-
-		gchar *contents = NULL;
-		gchar *filename =
-			g_strdup_printf("/sys/class/drm/%s/status", name);
-
-		gboolean ret =
-			g_file_get_contents(filename, &contents, NULL, NULL);
-
-		g_free(filename);
-
-		if (ret == FALSE)
-			continue;
-
-		if (g_strcmp0("connected\n", contents) != 0) {
-			g_free(contents);
-			continue;
 		}
-		g_free(contents);
-
-		plugs[num_plugs++] = g_strdup(plug);
-
-		if (num_plugs >= 32)
-			break;
 	}
 
-	g_dir_close(dir);
+	g_variant_unref(list);
+	g_variant_unref(display_config);
 
-	return plugs;
+fail:
+	if (dbus != NULL)
+		g_object_unref(dbus);
 }
 
 static const char *get_name(void *type_data)
@@ -314,21 +333,16 @@ static void start(data_t *data)
 		obs_data_get_string(data->settings, "window-id"), NULL, 0);
 
 	if (window_id == 0) {
-		const gchar *connector = obs_data_get_string(
-			data->settings, "connector-overwrite");
-		if (g_strcmp0(connector, "") == 0) {
-			connector = obs_data_get_string(data->settings,
-							"connector");
-		}
-
 		stream_res = g_dbus_connection_call_sync(
 			dbus, "org.gnome.Mutter.ScreenCast", session_path,
 			"org.gnome.Mutter.ScreenCast.Session", "RecordMonitor",
-			g_variant_new_parsed(
-				"(%s, {'cursor-mode' : <%u>})", connector,
-				obs_data_get_bool(data->settings, "cursor")
-					? 1
-					: 0),
+			g_variant_new_parsed("(%s, {'cursor-mode' : <%u>})",
+					     obs_data_get_string(data->settings,
+								 "connector"),
+					     obs_data_get_bool(data->settings,
+							       "cursor")
+						     ? 1
+						     : 0),
 			NULL, G_DBUS_CALL_FLAGS_NONE, -1, NULL, &err);
 	} else {
 		stream_res = g_dbus_connection_call_sync(
@@ -344,7 +358,8 @@ static void start(data_t *data)
 	}
 
 	if (err != NULL) {
-		blog(LOG_ERROR, "Cannot call RecordMonitor() on DBus: %s",
+		blog(LOG_ERROR, "Cannot call %s on DBus: %s",
+		     window_id == 0 ? "RecordMonitor()" : "RecordWindow()",
 		     err->message);
 		g_error_free(err);
 
@@ -453,37 +468,30 @@ static void destroy(void *data)
 
 static void get_defaults(obs_data_t *settings)
 {
-	gchar **plug_names = get_plug_names();
-	if (plug_names[0] != NULL)
-		obs_data_set_default_string(settings, "connector",
-					    plug_names[0]);
-	g_strfreev(plug_names);
-
-	obs_data_set_default_string(settings, "connector-overwrite", "");
+	obs_data_set_default_string(settings, "connector", "");
 	obs_data_set_default_string(settings, "window-id", "");
 	obs_data_set_default_bool(settings, "cursor", true);
 }
 
-static obs_properties_t *get_properties(void *data)
+static obs_properties_t *get_properties(void *p)
 {
+	data_t *data = (data_t *)p;
+
 	obs_properties_t *props = obs_properties_create();
 	obs_property_t *prop = obs_properties_add_list(props, "connector",
 						       "Connector",
 						       OBS_COMBO_TYPE_LIST,
 						       OBS_COMBO_FORMAT_STRING);
 
-	gchar **plug_names = get_plug_names();
-	for (int i = 0;; i++) {
-		if (plug_names[i] == NULL)
-			break;
-
-		obs_property_list_add_string(prop, plug_names[i],
-					     plug_names[i]);
+	update_plug_names(data);
+	for (int i = 0; i < data->num_plugs; i++) {
+		gchar *tmp = g_strdup_printf("%s (%s)", data->plugs[i].monitor,
+					     data->plugs[i].connector);
+		obs_property_list_add_string(prop, tmp,
+					     data->plugs[i].connector);
+		g_free(tmp);
 	}
-	g_strfreev(plug_names);
 
-	obs_properties_add_text(props, "connector-overwrite",
-				"Connector (overwrite)", OBS_TEXT_DEFAULT);
 	obs_properties_add_text(props, "window-id", "Window ID",
 				OBS_TEXT_DEFAULT);
 	obs_properties_add_bool(props, "cursor", "Draw mouse cursor");
