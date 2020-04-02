@@ -39,7 +39,7 @@ typedef struct {
 	int64_t count;
 	guint subscribe_id;
 	plugs_t plugs[32];
-	int num_plugs;
+	gint num_plugs;
 } data_t;
 
 static void update_plug_names(data_t *data)
@@ -486,7 +486,7 @@ static obs_properties_t *get_properties(void *p)
 						       OBS_COMBO_FORMAT_STRING);
 
 	update_plug_names(data);
-	for (int i = 0; i < data->num_plugs; i++) {
+	for (gint i = 0; i < data->num_plugs; i++) {
 		gchar *tmp = g_strdup_printf("%s (%s)", data->plugs[i].monitor,
 					     data->plugs[i].connector);
 		obs_property_list_add_string(prop, tmp,
