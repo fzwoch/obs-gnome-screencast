@@ -314,16 +314,21 @@ static void start(data_t *data)
 		obs_data_get_string(data->settings, "window-id"), NULL, 0);
 
 	if (window_id == 0) {
+		const gchar *connector = obs_data_get_string(
+			data->settings, "connector-overwrite");
+		if (g_strcmp0(connector, "") == 0) {
+			connector = obs_data_get_string(data->settings,
+							"connector");
+		}
+
 		stream_res = g_dbus_connection_call_sync(
 			dbus, "org.gnome.Mutter.ScreenCast", session_path,
 			"org.gnome.Mutter.ScreenCast.Session", "RecordMonitor",
-			g_variant_new_parsed("(%s, {'cursor-mode' : <%u>})",
-					     obs_data_get_string(data->settings,
-								 "connector"),
-					     obs_data_get_bool(data->settings,
-							       "cursor")
-						     ? 1
-						     : 0),
+			g_variant_new_parsed(
+				"(%s, {'cursor-mode' : <%u>})", connector,
+				obs_data_get_bool(data->settings, "cursor")
+					? 1
+					: 0),
 			NULL, G_DBUS_CALL_FLAGS_NONE, -1, NULL, &err);
 	} else {
 		stream_res = g_dbus_connection_call_sync(
@@ -454,6 +459,7 @@ static void get_defaults(obs_data_t *settings)
 					    plug_names[0]);
 	g_strfreev(plug_names);
 
+	obs_data_set_default_string(settings, "connector-overwrite", "");
 	obs_data_set_default_string(settings, "window-id", "");
 	obs_data_set_default_bool(settings, "cursor", true);
 }
@@ -476,6 +482,8 @@ static obs_properties_t *get_properties(void *data)
 	}
 	g_strfreev(plug_names);
 
+	obs_properties_add_text(props, "connector-overwrite",
+				"Connector (overwrite)", OBS_TEXT_DEFAULT);
 	obs_properties_add_text(props, "window-id", "Window ID",
 				OBS_TEXT_DEFAULT);
 	obs_properties_add_bool(props, "cursor", "Draw mouse cursor");
