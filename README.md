@@ -8,7 +8,8 @@ being used. Basically saying that the main purpose of this plugin is to capture
 screens under Wayland sessions where the X11 capture falls short.
 
 You need to have GNOME Screen Cast application installed as well as the
-GStreamer pipewire elements.
+GStreamer pipewire elements. Make sure that in "GNOME Settings" you have
+"Sharing -> Desktop Sharing" enabled.
 
 [1]: https://obsproject.com/
 
