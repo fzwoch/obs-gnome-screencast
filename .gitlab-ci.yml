@@ -2,9 +2,7 @@ build:
   stage: build
   image: registry.gitlab.com/fzwoch/obs-gnome-screencast
   script:
-    - export LDFLAGS=-static-libgcc
-
-    - meson --buildtype=release build
+    - meson --buildtype=release -Dc_link_args=-static-libgcc build
     - ninja -C build
     - mv build/gnome-mutter-screencast.so .
   artifacts:
