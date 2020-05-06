@@ -1,4 +1,4 @@
-FROM debian:buster
+FROM debian:bullseye
 
 RUN apt update \
  && apt install -y gcc python3-pip ninja-build libglib2.0-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libobs-dev \
