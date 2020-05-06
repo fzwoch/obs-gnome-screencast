@@ -4,9 +4,9 @@ build:
   script:
     - export LDFLAGS=-static-libgcc
 
-    - meson --buildtype=release -Db_lto=true build
+    - meson --buildtype=release build
     - ninja -C build
-    - cp build/gnome-mutter-screencast.so .
+    - mv build/gnome-mutter-screencast.so .
   artifacts:
     name: gnome-mutter-screencast
     paths:
