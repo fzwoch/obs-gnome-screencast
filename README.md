@@ -39,3 +39,6 @@ See: https://gitlab.gnome.org/feaneron/obs-xdg-portal/
 
 Refer to the `Dockerfile` and `.gitlab-ci.yml` files on how to get a
 development workspace and how to build the plugin.
+
+### Fedora build
+requirements include `gstreamer1-plugins-base-devel ghc-gi-gio-devel.x86_64 obs-studio-libs obs-studio-devel`. Install with `dnf install`
