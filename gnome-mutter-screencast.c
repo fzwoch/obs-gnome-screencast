@@ -248,6 +248,10 @@ static void dbus_stream_closed_cb(GDBusConnection *connection,
 	if (data->pipe) {
 		gst_element_set_state(data->pipe, GST_STATE_NULL);
 
+		GstBus *bus = gst_element_get_bus(data->pipe);
+		gst_bus_remove_watch(bus);
+		gst_object_unref(bus);
+
 		gst_object_unref(data->pipe);
 		data->pipe = NULL;
 	}
@@ -424,6 +428,10 @@ static void stop(data_t *data)
 	}
 
 	gst_element_set_state(data->pipe, GST_STATE_NULL);
+
+	GstBus *bus = gst_element_get_bus(data->pipe);
+	gst_bus_remove_watch(bus);
+	gst_object_unref(bus);
 
 	gst_object_unref(data->pipe);
 	data->pipe = NULL;
