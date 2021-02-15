@@ -41,6 +41,10 @@ typedef struct {
 	guint subscribe_id;
 	plugs_t plugs[32];
 	gint num_plugs;
+	GThread *thread;
+	GMainLoop *loop;
+	GMutex mutex;
+	GCond cond;
 } data_t;
 
 static void update_plug_names(data_t *data)
@@ -301,13 +305,29 @@ static void dbus_cb(GDBusConnection *connection, const gchar *sender_name,
 	gst_element_set_state(data->pipe, GST_STATE_PLAYING);
 }
 
-static void start(data_t *data)
+static gboolean loop_startup(gpointer user_data)
 {
+	data_t *data = user_data;
+
+	g_mutex_lock(&data->mutex);
+	g_cond_signal(&data->cond);
+	g_mutex_unlock(&data->mutex);
+
+	return FALSE;
+}
+
+static void *_start(void *p)
+{
+	data_t *data = p;
 	GError *err = NULL;
 	GVariant *stream_res = NULL;
 	GVariant *session_res = NULL;
 
 	data->count = 0;
+
+	GMainContext *context = g_main_context_new();
+
+	g_main_context_push_thread_default(context);
 
 	GDBusConnection *dbus = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &err);
 	if (err != NULL) {
@@ -408,24 +428,17 @@ fail:
 
 	if (dbus != NULL)
 		g_object_unref(dbus);
-}
 
-static void *create(obs_data_t *settings, obs_source_t *source)
-{
-	data_t *data = g_new0(data_t, 1);
+	GSource *source = g_idle_source_new();
+	g_source_set_callback(source, loop_startup, data, NULL);
+	g_source_attach(source, context);
 
-	data->source = source;
-	data->settings = settings;
+	data->loop = g_main_loop_new(context, FALSE);
 
-	return data;
-}
-
-static void stop(data_t *data)
-{
-	GError *err = NULL;
+	g_main_loop_run(data->loop);
 
 	if (data->pipe == NULL) {
-		return;
+		goto fail2;
 	}
 
 	gst_element_set_state(data->pipe, GST_STATE_NULL);
@@ -437,12 +450,12 @@ static void stop(data_t *data)
 	gst_object_unref(data->pipe);
 	data->pipe = NULL;
 
-	GDBusConnection *dbus = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &err);
+	dbus = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &err);
 	if (err != NULL) {
 		blog(LOG_ERROR, "Cannot connect to DBus: %s", err->message);
 		g_error_free(err);
 
-		goto fail;
+		goto fail2;
 	}
 
 	g_dbus_connection_signal_unsubscribe(dbus, data->subscribe_id);
@@ -458,22 +471,70 @@ static void stop(data_t *data)
 		blog(LOG_ERROR, "Cannot call Stop() on DBus: %s", err->message);
 		g_error_free(err);
 
-		goto fail;
+		goto fail2;
 	}
 
-fail:
+fail2:
 	g_free(data->session_path);
 	data->session_path = NULL;
 
 	if (dbus != NULL)
 		g_object_unref(dbus);
 
+	g_main_loop_unref(data->loop);
+	data->loop = NULL;
+
+	g_main_context_unref(context);
+
+	return NULL;
+}
+
+static void *create(obs_data_t *settings, obs_source_t *source)
+{
+	data_t *data = g_new0(data_t, 1);
+
+	data->source = source;
+	data->settings = settings;
+
+	g_mutex_init(&data->mutex);
+	g_cond_init(&data->cond);
+
+	return data;
+}
+
+static void start(data_t *data)
+{
+	g_mutex_lock(&data->mutex);
+
+	data->thread = g_thread_new("OBS GNOME screen cast", _start, data);
+
+	g_cond_wait(&data->cond, &data->mutex);
+	g_mutex_unlock(&data->mutex);
+}
+
+static void stop(data_t *data)
+{
+	if (data->thread == NULL) {
+		return;
+	}
+
+	g_main_loop_quit(data->loop);
+
+	g_thread_join(data->thread);
+	data->thread = NULL;
+
 	obs_source_output_video(data->source, NULL);
 }
 
-static void destroy(void *data)
+static void destroy(void *p)
 {
+	data_t *data = (data_t *)p;
+
 	stop(data);
+
+	g_mutex_clear(&data->mutex);
+	g_cond_clear(&data->cond);
+
 	g_free(data);
 }
 
