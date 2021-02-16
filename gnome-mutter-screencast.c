@@ -19,6 +19,7 @@
  */
 
 #include <obs/obs-module.h>
+#include <obs/util/platform.h>
 #include <gio/gio.h>
 #include <gst/gst.h>
 #include <gst/app/app.h>
@@ -36,7 +37,6 @@ typedef struct {
 	gchar *session_path;
 	obs_source_t *source;
 	obs_data_t *settings;
-	int64_t count;
 	guint subscribe_id;
 	plugs_t plugs[32];
 	gint num_plugs;
@@ -162,7 +162,7 @@ static GstFlowReturn new_sample(GstAppSink *appsink, gpointer user_data)
 	frame.data[1] = info.data + video_info.offset[1];
 	frame.data[2] = info.data + video_info.offset[2];
 
-	frame.timestamp = data->count++;
+	frame.timestamp = os_gettime_ns();
 
 	enum video_range_type range = VIDEO_RANGE_DEFAULT;
 	switch (video_info.colorimetry.range) {
@@ -305,8 +305,6 @@ static void start(data_t *data)
 	GError *err = NULL;
 	GVariant *stream_res = NULL;
 	GVariant *session_res = NULL;
-
-	data->count = 0;
 
 	GDBusConnection *dbus = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &err);
 	if (err != NULL) {
