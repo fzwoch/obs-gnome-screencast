@@ -19,6 +19,7 @@
  */
 
 #include <obs/obs-module.h>
+#include <obs/util/platform.h>
 #include <gio/gio.h>
 #include <gst/gst.h>
 #include <gst/app/app.h>
@@ -162,7 +163,9 @@ static GstFlowReturn new_sample(GstAppSink *appsink, gpointer user_data)
 	frame.data[1] = info.data + video_info.offset[1];
 	frame.data[2] = info.data + video_info.offset[2];
 
-	frame.timestamp = data->count++;
+	frame.timestamp = obs_data_get_bool(data->settings, "timestamps")
+				  ? os_gettime_ns()
+				  : data->count++;
 
 	enum video_range_type range = VIDEO_RANGE_DEFAULT;
 	switch (video_info.colorimetry.range) {
@@ -481,6 +484,7 @@ static void get_defaults(obs_data_t *settings)
 	obs_data_set_default_string(settings, "connector", "");
 	obs_data_set_default_string(settings, "window-id", "");
 	obs_data_set_default_bool(settings, "cursor", true);
+	obs_data_set_default_bool(settings, "timestamps", false);
 }
 
 static obs_properties_t *get_properties(void *p)
@@ -505,6 +509,8 @@ static obs_properties_t *get_properties(void *p)
 	obs_properties_add_text(props, "window-id", "Window ID",
 				OBS_TEXT_DEFAULT);
 	obs_properties_add_bool(props, "cursor", "Draw mouse cursor");
+	obs_properties_add_bool(props, "timestamps",
+				"Use running time as time stamps");
 
 	return props;
 }
