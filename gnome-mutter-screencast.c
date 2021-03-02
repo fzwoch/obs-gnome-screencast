@@ -143,8 +143,6 @@ static GstFlowReturn new_sample(GstAppSink *appsink, gpointer user_data)
 	data_t *data = user_data;
 	GstSample *sample = gst_app_sink_pull_sample(appsink);
 	GstBuffer *buffer = gst_sample_get_buffer(sample);
-	gst_buffer_ref(
-		buffer); // what? need to ref here if we dont want always-copy=true for pipewiresrc
 	GstCaps *caps = gst_sample_get_caps(sample);
 	GstMapInfo info;
 	GstVideoInfo video_info;
@@ -274,7 +272,7 @@ static void dbus_cb(GDBusConnection *connection, const gchar *sender_name,
 	g_variant_get(parameters, "(u)", &node_id, NULL);
 
 	gchar *pipeline = g_strdup_printf(
-		"pipewiresrc client-name=obs-studio path=%u ! video/x-raw ! "
+		"pipewiresrc client-name=obs-studio path=%u always-copy=true ! video/x-raw ! "
 		"appsink max-buffers=2 drop=true sync=false name=appsink",
 		node_id);
 
