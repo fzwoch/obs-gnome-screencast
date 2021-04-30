@@ -24,13 +24,19 @@
 #include <gst/gst.h>
 #include <gst/app/app.h>
 #include <gst/video/video.h>
+#include <json-glib/json-glib.h>
 
 OBS_DECLARE_MODULE()
 
 typedef struct {
 	gchar connector[256];
 	gchar monitor[256];
-} plugs_t;
+} plug_t;
+
+typedef struct {
+	guint64 id;
+	gchar title[256];
+} window_t;
 
 typedef struct {
 	GstElement *pipe;
@@ -39,8 +45,10 @@ typedef struct {
 	obs_data_t *settings;
 	int64_t count;
 	guint subscribe_id;
-	plugs_t plugs[32];
+	plug_t plugs[32];
 	gint num_plugs;
+	window_t windows[256];
+	gint num_windows;
 	GThread *thread;
 	GMainLoop *loop;
 	GMutex mutex;
@@ -99,7 +107,7 @@ static void update_plug_names(data_t *data)
 
 		data->num_plugs++;
 
-		if (data->num_plugs >= sizeof(data->plugs) / sizeof(plugs_t)) {
+		if (data->num_plugs >= sizeof(data->plugs) / sizeof(plug_t)) {
 			break;
 		}
 	}
@@ -108,6 +116,86 @@ static void update_plug_names(data_t *data)
 	g_variant_unref(display_config);
 
 fail:
+	if (dbus != NULL)
+		g_object_unref(dbus);
+}
+
+static void update_windows(data_t *data)
+{
+	GError *err = NULL;
+
+	memset(data->windows, 0, sizeof(data->windows));
+	data->num_windows = 0;
+
+	GDBusConnection *dbus = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &err);
+	if (err != NULL) {
+		blog(LOG_ERROR, "Cannot connect to DBus: %s", err->message);
+		g_error_free(err);
+
+		goto fail;
+	}
+
+	const gchar *command =
+		"global"
+		".get_window_actors()"
+		".map(a=>a.meta_window)"
+		".map(w=>({class: w.get_wm_class(), id: w.get_id(), title: w.get_title()}))";
+
+	GVariant *eval_res = g_dbus_connection_call_sync(
+		dbus, "org.gnome.Shell", "/org/gnome/Shell", "org.gnome.Shell",
+		"Eval", g_variant_new_parsed("(%s,)", command), NULL,
+		G_DBUS_CALL_FLAGS_NONE, -1, NULL, &err);
+
+	if (err != NULL) {
+		blog(LOG_ERROR, "Cannot call Eval() on DBus: %s", err->message);
+		g_error_free(err);
+
+		goto fail;
+	}
+
+	gboolean res = 0;
+	gchar *json = NULL;
+	g_variant_get(eval_res, "(bs)", &res, &json, NULL);
+	if (!res) {
+		blog(LOG_ERROR, "Eval() call failed");
+
+		goto fail;
+	}
+
+	JsonParser *parser = json_parser_new();
+
+	json_parser_load_from_data(parser, json, -1, &err);
+	if (err != NULL) {
+		blog(LOG_ERROR, "Cannot parse JSON: %s", err->message);
+		g_error_free(err);
+
+		goto fail;
+	}
+
+	JsonNode *root = json_parser_get_root(parser);
+	JsonArray *array = json_node_get_array(root);
+
+	for (guint i = 0; i < json_array_get_length(array); i++) {
+		if (i >= sizeof(data->windows) / sizeof(window_t))
+			break;
+
+		JsonObject *object = json_array_get_object_element(array, i);
+
+		data->windows[i].id = json_object_get_int_member(object, "id");
+		g_utf8_strncpy(data->windows[i].title,
+			       json_object_get_string_member(object, "title"),
+			       sizeof(data->windows[i].title));
+
+		data->num_windows++;
+	}
+
+fail:
+	if (parser)
+		g_object_unref(parser);
+
+	if (eval_res)
+		g_variant_unref(eval_res);
+
 	if (dbus != NULL)
 		g_object_unref(dbus);
 }
@@ -364,8 +452,7 @@ static void *_start(void *p)
 
 	data->session_path = g_strdup(session_path);
 
-	guint64 window_id = g_ascii_strtoull(
-		obs_data_get_string(data->settings, "window-id"), NULL, 0);
+	guint64 window_id = obs_data_get_int(data->settings, "window");
 
 	if (window_id == 0) {
 		stream_res = g_dbus_connection_call_sync(
@@ -549,7 +636,7 @@ static void destroy(void *p)
 static void get_defaults(obs_data_t *settings)
 {
 	obs_data_set_default_string(settings, "connector", "");
-	obs_data_set_default_string(settings, "window-id", "");
+	obs_data_set_default_int(settings, "window", 0);
 	obs_data_set_default_bool(settings, "cursor", true);
 	obs_data_set_default_bool(settings, "timestamps", false);
 }
@@ -573,8 +660,17 @@ static obs_properties_t *get_properties(void *p)
 		g_free(tmp);
 	}
 
-	obs_properties_add_text(props, "window-id", "Window ID",
-				OBS_TEXT_DEFAULT);
+	prop = obs_properties_add_list(props, "window", "Window",
+				       OBS_COMBO_TYPE_LIST,
+				       OBS_COMBO_FORMAT_INT);
+	obs_property_list_add_int(prop, "- Desktop capture -", 0);
+
+	update_windows(data);
+	for (gint i = 0; i < data->num_windows; i++) {
+		obs_property_list_add_int(prop, data->windows[i].title,
+					  data->windows[i].id);
+	}
+
 	obs_properties_add_bool(props, "cursor", "Draw mouse cursor");
 	obs_properties_add_bool(props, "timestamps",
 				"Use running time as time stamps");
