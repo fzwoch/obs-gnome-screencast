@@ -181,7 +181,6 @@ static void update_windows(data_t *data)
 	JsonArray *array = json_node_get_array(root);
 
 	for (guint i = 0; i < json_array_get_length(array); i++) {
-
 		JsonObject *object = json_array_get_object_element(array, i);
 
 		const gchar *class =
