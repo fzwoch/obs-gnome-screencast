@@ -58,6 +58,7 @@ typedef struct {
 static void update_plug_names(data_t *data)
 {
 	GError *err = NULL;
+	GVariant *display_config = NULL;
 
 	memset(data->plugs, 0, sizeof(data->plugs));
 	data->num_plugs = 0;
@@ -70,7 +71,7 @@ static void update_plug_names(data_t *data)
 		goto fail;
 	}
 
-	GVariant *display_config = g_dbus_connection_call_sync(
+	display_config = g_dbus_connection_call_sync(
 		dbus, "org.gnome.Mutter.DisplayConfig",
 		"/org/gnome/Mutter/DisplayConfig",
 		"org.gnome.Mutter.DisplayConfig", "GetCurrentState", NULL, NULL,
@@ -113,9 +114,11 @@ static void update_plug_names(data_t *data)
 	}
 
 	g_variant_unref(list);
-	g_variant_unref(display_config);
 
 fail:
+	if (display_config != NULL)
+		g_variant_unref(display_config);
+
 	if (dbus != NULL)
 		g_object_unref(dbus);
 }
@@ -158,7 +161,7 @@ static void update_windows(data_t *data)
 	gboolean res = 0;
 	gchar *json = NULL;
 	g_variant_get(eval_res, "(bs)", &res, &json, NULL);
-	if (!res) {
+	if (res != TRUE) {
 		blog(LOG_ERROR, "Eval() call failed");
 
 		goto fail;
@@ -200,10 +203,10 @@ static void update_windows(data_t *data)
 	}
 
 fail:
-	if (parser)
+	if (parser != NULL)
 		g_object_unref(parser);
 
-	if (eval_res)
+	if (eval_res != NULL)
 		g_variant_unref(eval_res);
 
 	if (dbus != NULL)
@@ -254,7 +257,7 @@ static GstFlowReturn new_sample(GstAppSink *appsink, gpointer user_data)
 	gst_buffer_map(buffer, &info, GST_MAP_READ);
 
 	// somehow we can end up with empty buffers?
-	if (!info.data) {
+	if (info.data == NULL) {
 		gst_buffer_unmap(buffer, &info);
 		gst_sample_unref(sample);
 
@@ -287,7 +290,7 @@ static GstFlowReturn new_sample(GstAppSink *appsink, gpointer user_data)
 				  ? os_gettime_ns()
 				  : data->count++;
 
-	if (meta) {
+	if (meta != NULL) {
 		frame.width = meta->width;
 		frame.height = meta->height;
 		frame.data[0] += meta->y * video_info.stride[0] + meta->x * 4;
@@ -339,7 +342,7 @@ static void dbus_stream_closed_cb(GDBusConnection *connection,
 {
 	data_t *data = user_data;
 
-	if (data->pipe) {
+	if (data->pipe != NULL) {
 		gst_element_set_state(data->pipe, GST_STATE_NULL);
 
 		GstBus *bus = gst_element_get_bus(data->pipe);
