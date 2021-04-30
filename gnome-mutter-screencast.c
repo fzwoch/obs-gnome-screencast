@@ -123,6 +123,7 @@ fail:
 static void update_windows(data_t *data)
 {
 	GError *err = NULL;
+	JsonParser *parser = NULL;
 
 	memset(data->windows, 0, sizeof(data->windows));
 	data->num_windows = 0;
@@ -162,7 +163,7 @@ static void update_windows(data_t *data)
 		goto fail;
 	}
 
-	JsonParser *parser = json_parser_new();
+	parser = json_parser_new();
 
 	json_parser_load_from_data(parser, json, -1, &err);
 	if (err != NULL) {
