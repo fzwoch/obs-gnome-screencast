@@ -238,14 +238,37 @@ static GstFlowReturn new_sample(GstAppSink *appsink, gpointer user_data)
 	GstSample *sample = gst_app_sink_pull_sample(appsink);
 	GstBuffer *buffer = gst_sample_get_buffer(sample);
 	GstCaps *caps = gst_sample_get_caps(sample);
+	GstVideoCropMeta *meta = gst_buffer_get_video_crop_meta(buffer);
 	GstMapInfo info;
 	GstVideoInfo video_info;
 
 	gst_video_info_from_caps(&video_info, caps);
 	gst_buffer_map(buffer, &info, GST_MAP_READ);
 
+	// sometimes we get nonsense meta data
+	if (meta && (meta->width == 0 || meta->height == 0)) {
+		gst_buffer_unmap(buffer, &info);
+		gst_sample_unref(sample);
+
+		return GST_FLOW_OK;
+	}
+
 	// somehow we can end up with empty buffers?
 	if (!info.data) {
+		gst_buffer_unmap(buffer, &info);
+		gst_sample_unref(sample);
+
+		return GST_FLOW_OK;
+	}
+
+	switch (video_info.finfo->format) {
+	case GST_VIDEO_FORMAT_BGRx:
+	case GST_VIDEO_FORMAT_BGRA:
+		break;
+	default:
+		blog(LOG_ERROR, "Unexpected video format: %s",
+		     video_info.finfo->name);
+
 		gst_buffer_unmap(buffer, &info);
 		gst_sample_unref(sample);
 
@@ -256,16 +279,19 @@ static GstFlowReturn new_sample(GstAppSink *appsink, gpointer user_data)
 
 	frame.width = video_info.width;
 	frame.height = video_info.height;
+	frame.format = VIDEO_FORMAT_BGRA;
 	frame.linesize[0] = video_info.stride[0];
-	frame.linesize[1] = video_info.stride[1];
-	frame.linesize[2] = video_info.stride[2];
 	frame.data[0] = info.data + video_info.offset[0];
-	frame.data[1] = info.data + video_info.offset[1];
-	frame.data[2] = info.data + video_info.offset[2];
 
 	frame.timestamp = obs_data_get_bool(data->settings, "timestamps")
 				  ? os_gettime_ns()
 				  : data->count++;
+
+	if (meta) {
+		frame.width = meta->width;
+		frame.height = meta->height;
+		frame.data[0] +=  meta->y * video_info.stride[0] + meta->x * 4;
+	}
 
 	enum video_range_type range = VIDEO_RANGE_DEFAULT;
 	switch (video_info.colorimetry.range) {
@@ -295,41 +321,6 @@ static GstFlowReturn new_sample(GstAppSink *appsink, gpointer user_data)
 	video_format_get_parameters(cs, range, frame.color_matrix,
 				    frame.color_range_min,
 				    frame.color_range_max);
-
-	switch (video_info.finfo->format) {
-	case GST_VIDEO_FORMAT_I420:
-		frame.format = VIDEO_FORMAT_I420;
-		break;
-	case GST_VIDEO_FORMAT_NV12:
-		frame.format = VIDEO_FORMAT_NV12;
-		break;
-	case GST_VIDEO_FORMAT_BGRx:
-		// we usually get BGRx, however the alpha channel is set.
-		// why not just fall through and use it.
-		//frame.format = VIDEO_FORMAT_BGRX;
-		//break;
-	case GST_VIDEO_FORMAT_BGRA:
-		frame.format = VIDEO_FORMAT_BGRA;
-		break;
-	case GST_VIDEO_FORMAT_RGBx:
-	case GST_VIDEO_FORMAT_RGBA:
-		frame.format = VIDEO_FORMAT_RGBA;
-		break;
-	case GST_VIDEO_FORMAT_UYVY:
-		frame.format = VIDEO_FORMAT_UYVY;
-		break;
-	case GST_VIDEO_FORMAT_YUY2:
-		frame.format = VIDEO_FORMAT_YUY2;
-		break;
-	case GST_VIDEO_FORMAT_YVYU:
-		frame.format = VIDEO_FORMAT_YVYU;
-		break;
-	default:
-		frame.format = VIDEO_FORMAT_NONE;
-		blog(LOG_ERROR, "Unknown video format: %s",
-		     video_info.finfo->name);
-		break;
-	}
 
 	obs_source_output_video(data->source, &frame);
 
