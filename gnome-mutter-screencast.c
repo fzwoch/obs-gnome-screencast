@@ -154,6 +154,14 @@ static GstFlowReturn new_sample(GstAppSink *appsink, gpointer user_data)
 	gst_video_info_from_caps(&video_info, caps);
 	gst_buffer_map(buffer, &info, GST_MAP_READ);
 
+	// somehow we can end up with empty buffers?
+	if (!info.data) {
+		gst_buffer_unmap(buffer, &info);
+		gst_sample_unref(sample);
+
+		return GST_FLOW_OK;
+	}
+
 	struct obs_source_frame frame = {};
 
 	frame.width = video_info.width;
