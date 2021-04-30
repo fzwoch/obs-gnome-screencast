@@ -253,14 +253,6 @@ static GstFlowReturn new_sample(GstAppSink *appsink, gpointer user_data)
 	gst_video_info_from_caps(&video_info, caps);
 	gst_buffer_map(buffer, &info, GST_MAP_READ);
 
-	// sometimes we get nonsense meta data
-	if (meta && (meta->width == 0 || meta->height == 0)) {
-		gst_buffer_unmap(buffer, &info);
-		gst_sample_unref(sample);
-
-		return GST_FLOW_OK;
-	}
-
 	// somehow we can end up with empty buffers?
 	if (!info.data) {
 		gst_buffer_unmap(buffer, &info);
