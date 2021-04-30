@@ -178,17 +178,25 @@ static void update_windows(data_t *data)
 	JsonArray *array = json_node_get_array(root);
 
 	for (guint i = 0; i < json_array_get_length(array); i++) {
-		if (i >= sizeof(data->windows) / sizeof(window_t))
-			break;
 
 		JsonObject *object = json_array_get_object_element(array, i);
 
-		data->windows[i].id = json_object_get_int_member(object, "id");
-		g_utf8_strncpy(data->windows[i].title,
+		const gchar *class =
+			json_object_get_string_member(object, "class");
+		if (g_strcmp0(class, "Gnome-shell") == 0)
+			continue;
+
+		data->windows[data->num_windows].id =
+			json_object_get_int_member(object, "id");
+		g_utf8_strncpy(data->windows[data->num_windows].title,
 			       json_object_get_string_member(object, "title"),
-			       sizeof(data->windows[i].title));
+			       sizeof(data->windows[data->num_windows].title));
 
 		data->num_windows++;
+
+		if (data->num_windows >=
+		    sizeof(data->windows) / sizeof(window_t))
+			break;
 	}
 
 fail:
@@ -290,7 +298,7 @@ static GstFlowReturn new_sample(GstAppSink *appsink, gpointer user_data)
 	if (meta) {
 		frame.width = meta->width;
 		frame.height = meta->height;
-		frame.data[0] +=  meta->y * video_info.stride[0] + meta->x * 4;
+		frame.data[0] += meta->y * video_info.stride[0] + meta->x * 4;
 	}
 
 	enum video_range_type range = VIDEO_RANGE_DEFAULT;
