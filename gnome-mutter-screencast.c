@@ -124,6 +124,7 @@ static void update_windows(data_t *data)
 {
 	GError *err = NULL;
 	JsonParser *parser = NULL;
+	GVariant *eval_res = NULL;
 
 	memset(data->windows, 0, sizeof(data->windows));
 	data->num_windows = 0;
@@ -142,7 +143,7 @@ static void update_windows(data_t *data)
 		".map(a=>a.meta_window)"
 		".map(w=>({class: w.get_wm_class(), id: w.get_id(), title: w.get_title()}))";
 
-	GVariant *eval_res = g_dbus_connection_call_sync(
+	eval_res = g_dbus_connection_call_sync(
 		dbus, "org.gnome.Shell", "/org/gnome/Shell", "org.gnome.Shell",
 		"Eval", g_variant_new_parsed("(%s,)", command), NULL,
 		G_DBUS_CALL_FLAGS_NONE, -1, NULL, &err);
