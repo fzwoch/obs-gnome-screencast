@@ -526,9 +526,8 @@ fail:
 
 	g_main_loop_run(data->loop);
 
-	if (data->pipe == NULL) {
+	if (data->pipe == NULL)
 		goto fail2;
-	}
 
 	gst_element_set_state(data->pipe, GST_STATE_NULL);
 
@@ -660,10 +659,9 @@ static obs_properties_t *get_properties(void *p)
 	obs_property_list_add_int(prop, "- Desktop capture -", 0);
 
 	update_windows(data);
-	for (gint i = 0; i < data->num_windows; i++) {
+	for (gint i = 0; i < data->num_windows; i++)
 		obs_property_list_add_int(prop, data->windows[i].title,
 					  data->windows[i].id);
-	}
 
 	obs_properties_add_bool(props, "cursor", "Draw mouse cursor");
 	obs_properties_add_bool(props, "timestamps",
