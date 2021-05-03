@@ -190,9 +190,9 @@ static void update_windows(data_t *data)
 
 		data->windows[data->num_windows].id =
 			json_object_get_int_member(object, "id");
-		strncpy(data->windows[data->num_windows].title,
-			json_object_get_string_member(object, "title"),
-			sizeof(data->windows[data->num_windows].title));
+		g_strlcpy(data->windows[data->num_windows].title,
+			  json_object_get_string_member(object, "title"),
+			  sizeof(data->windows[data->num_windows].title));
 
 		data->num_windows++;
 
