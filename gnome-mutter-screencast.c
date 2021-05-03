@@ -108,9 +108,8 @@ static void update_plug_names(data_t *data)
 
 		data->num_plugs++;
 
-		if (data->num_plugs >= sizeof(data->plugs) / sizeof(plug_t)) {
+		if (data->num_plugs >= sizeof(data->plugs) / sizeof(plug_t))
 			break;
-		}
 	}
 
 	g_variant_unref(list);
