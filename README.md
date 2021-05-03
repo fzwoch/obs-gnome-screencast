@@ -14,16 +14,15 @@ GStreamer pipewire elements. Make sure that in "GNOME Settings" you have
 [1]: https://obsproject.com/
 
 
-## Todo
+## Note
 
-Keep an eye on support for the Freedesktop variation of this API:
+OBS Studio v27 does come with it's own Wayland capable Desktop/Window capture via
+XDG-Desktop-Portal.
 
 https://github.com/flatpak/xdg-desktop-portal/blob/master/data/org.freedesktop.portal.ScreenCast.xml
 
-Once KDE/GNOME and distributions have picked this up we could modify the plugin
-slightly to have unified platform support.
-
-See: https://gitlab.gnome.org/feaneron/obs-xdg-portal/
+So you probably just want to make use of that one. This is complementary, in case this
+fits your specific needs a little better.
 
 
 ## Build
