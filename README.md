@@ -13,15 +13,6 @@ GStreamer pipewire elements. Make sure that in "GNOME Settings" you have
 
 [1]: https://obsproject.com/
 
-## Getting Window ID
-
-Currently there is no (known) way to obtain mutter's ID for a window other than through Looking Glass, to obtain the ID:
-  1. Press `ALT+F2` in the window that appears and type `lg` (Looking Glass)
-  2. Click on the "Windows" tab in the upper right corner
-  3. Select the *Window Name* at the top (Not the "App" section)
-  4. Press "Insert" in the upper right corner
-  5. Go back to the "Evaluator" tab and look at the last entry, it should have something like `r(n) = [...]`
-  6. type `r(<number>).get_id()`
 
 ## Todo
 

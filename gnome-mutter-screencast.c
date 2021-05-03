@@ -24,13 +24,19 @@
 #include <gst/gst.h>
 #include <gst/app/app.h>
 #include <gst/video/video.h>
+#include <json-glib/json-glib.h>
 
 OBS_DECLARE_MODULE()
 
 typedef struct {
 	gchar connector[256];
 	gchar monitor[256];
-} plugs_t;
+} plug_t;
+
+typedef struct {
+	guint64 id;
+	gchar title[256];
+} window_t;
 
 typedef struct {
 	GstElement *pipe;
@@ -39,8 +45,10 @@ typedef struct {
 	obs_data_t *settings;
 	int64_t count;
 	guint subscribe_id;
-	plugs_t plugs[32];
+	plug_t plugs[32];
 	gint num_plugs;
+	window_t windows[256];
+	gint num_windows;
 	GThread *thread;
 	GMainLoop *loop;
 	GMutex mutex;
@@ -50,6 +58,7 @@ typedef struct {
 static void update_plug_names(data_t *data)
 {
 	GError *err = NULL;
+	GVariant *display_config = NULL;
 
 	memset(data->plugs, 0, sizeof(data->plugs));
 	data->num_plugs = 0;
@@ -62,7 +71,7 @@ static void update_plug_names(data_t *data)
 		goto fail;
 	}
 
-	GVariant *display_config = g_dbus_connection_call_sync(
+	display_config = g_dbus_connection_call_sync(
 		dbus, "org.gnome.Mutter.DisplayConfig",
 		"/org/gnome/Mutter/DisplayConfig",
 		"org.gnome.Mutter.DisplayConfig", "GetCurrentState", NULL, NULL,
@@ -99,15 +108,105 @@ static void update_plug_names(data_t *data)
 
 		data->num_plugs++;
 
-		if (data->num_plugs >= sizeof(data->plugs) / sizeof(plugs_t)) {
+		if (data->num_plugs >= sizeof(data->plugs) / sizeof(plug_t))
 			break;
-		}
 	}
 
 	g_variant_unref(list);
-	g_variant_unref(display_config);
 
 fail:
+	if (display_config != NULL)
+		g_variant_unref(display_config);
+
+	if (dbus != NULL)
+		g_object_unref(dbus);
+}
+
+static void update_windows(data_t *data)
+{
+	GError *err = NULL;
+	JsonParser *parser = NULL;
+	GVariant *eval_res = NULL;
+
+	memset(data->windows, 0, sizeof(data->windows));
+	data->num_windows = 0;
+
+	GDBusConnection *dbus = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &err);
+	if (err != NULL) {
+		blog(LOG_ERROR, "Cannot connect to DBus: %s", err->message);
+		g_error_free(err);
+
+		goto fail;
+	}
+
+	const gchar *command =
+		"global"
+		".get_window_actors()"
+		".map(a=>a.meta_window)"
+		".map(w=>({class: w.get_wm_class(), id: w.get_id(), title: w.get_title()}))";
+
+	eval_res = g_dbus_connection_call_sync(
+		dbus, "org.gnome.Shell", "/org/gnome/Shell", "org.gnome.Shell",
+		"Eval", g_variant_new_parsed("(%s,)", command), NULL,
+		G_DBUS_CALL_FLAGS_NONE, -1, NULL, &err);
+
+	if (err != NULL) {
+		blog(LOG_ERROR, "Cannot call Eval() on DBus: %s", err->message);
+		g_error_free(err);
+
+		goto fail;
+	}
+
+	gboolean res = 0;
+	gchar *json = NULL;
+	g_variant_get(eval_res, "(bs)", &res, &json, NULL);
+	if (res != TRUE) {
+		blog(LOG_ERROR, "Eval() call failed");
+
+		goto fail;
+	}
+
+	parser = json_parser_new();
+
+	json_parser_load_from_data(parser, json, -1, &err);
+	if (err != NULL) {
+		blog(LOG_ERROR, "Cannot parse JSON: %s", err->message);
+		g_error_free(err);
+
+		goto fail;
+	}
+
+	JsonNode *root = json_parser_get_root(parser);
+	JsonArray *array = json_node_get_array(root);
+
+	for (guint i = 0; i < json_array_get_length(array); i++) {
+		JsonObject *object = json_array_get_object_element(array, i);
+
+		const gchar *class =
+			json_object_get_string_member(object, "class");
+		if (g_strcmp0(class, "Gnome-shell") == 0)
+			continue;
+
+		data->windows[data->num_windows].id =
+			json_object_get_int_member(object, "id");
+		g_strlcpy(data->windows[data->num_windows].title,
+			  json_object_get_string_member(object, "title"),
+			  sizeof(data->windows[data->num_windows].title));
+
+		data->num_windows++;
+
+		if (data->num_windows >=
+		    sizeof(data->windows) / sizeof(window_t))
+			break;
+	}
+
+fail:
+	if (parser != NULL)
+		g_object_unref(parser);
+
+	if (eval_res != NULL)
+		g_variant_unref(eval_res);
+
 	if (dbus != NULL)
 		g_object_unref(dbus);
 }
@@ -148,6 +247,7 @@ static GstFlowReturn new_sample(GstAppSink *appsink, gpointer user_data)
 	GstSample *sample = gst_app_sink_pull_sample(appsink);
 	GstBuffer *buffer = gst_sample_get_buffer(sample);
 	GstCaps *caps = gst_sample_get_caps(sample);
+	GstVideoCropMeta *meta = gst_buffer_get_video_crop_meta(buffer);
 	GstMapInfo info;
 	GstVideoInfo video_info;
 
@@ -155,7 +255,21 @@ static GstFlowReturn new_sample(GstAppSink *appsink, gpointer user_data)
 	gst_buffer_map(buffer, &info, GST_MAP_READ);
 
 	// somehow we can end up with empty buffers?
-	if (!info.data) {
+	if (info.data == NULL) {
+		gst_buffer_unmap(buffer, &info);
+		gst_sample_unref(sample);
+
+		return GST_FLOW_OK;
+	}
+
+	switch (video_info.finfo->format) {
+	case GST_VIDEO_FORMAT_BGRx:
+	case GST_VIDEO_FORMAT_BGRA:
+		break;
+	default:
+		blog(LOG_ERROR, "Unexpected video format: %s",
+		     video_info.finfo->name);
+
 		gst_buffer_unmap(buffer, &info);
 		gst_sample_unref(sample);
 
@@ -166,16 +280,19 @@ static GstFlowReturn new_sample(GstAppSink *appsink, gpointer user_data)
 
 	frame.width = video_info.width;
 	frame.height = video_info.height;
+	frame.format = VIDEO_FORMAT_BGRA;
 	frame.linesize[0] = video_info.stride[0];
-	frame.linesize[1] = video_info.stride[1];
-	frame.linesize[2] = video_info.stride[2];
 	frame.data[0] = info.data + video_info.offset[0];
-	frame.data[1] = info.data + video_info.offset[1];
-	frame.data[2] = info.data + video_info.offset[2];
 
 	frame.timestamp = obs_data_get_bool(data->settings, "timestamps")
 				  ? os_gettime_ns()
 				  : data->count++;
+
+	if (meta != NULL) {
+		frame.width = meta->width;
+		frame.height = meta->height;
+		frame.data[0] += meta->y * video_info.stride[0] + meta->x * 4;
+	}
 
 	enum video_range_type range = VIDEO_RANGE_DEFAULT;
 	switch (video_info.colorimetry.range) {
@@ -206,41 +323,6 @@ static GstFlowReturn new_sample(GstAppSink *appsink, gpointer user_data)
 				    frame.color_range_min,
 				    frame.color_range_max);
 
-	switch (video_info.finfo->format) {
-	case GST_VIDEO_FORMAT_I420:
-		frame.format = VIDEO_FORMAT_I420;
-		break;
-	case GST_VIDEO_FORMAT_NV12:
-		frame.format = VIDEO_FORMAT_NV12;
-		break;
-	case GST_VIDEO_FORMAT_BGRx:
-		// we usually get BGRx, however the alpha channel is set.
-		// why not just fall through and use it.
-		//frame.format = VIDEO_FORMAT_BGRX;
-		//break;
-	case GST_VIDEO_FORMAT_BGRA:
-		frame.format = VIDEO_FORMAT_BGRA;
-		break;
-	case GST_VIDEO_FORMAT_RGBx:
-	case GST_VIDEO_FORMAT_RGBA:
-		frame.format = VIDEO_FORMAT_RGBA;
-		break;
-	case GST_VIDEO_FORMAT_UYVY:
-		frame.format = VIDEO_FORMAT_UYVY;
-		break;
-	case GST_VIDEO_FORMAT_YUY2:
-		frame.format = VIDEO_FORMAT_YUY2;
-		break;
-	case GST_VIDEO_FORMAT_YVYU:
-		frame.format = VIDEO_FORMAT_YVYU;
-		break;
-	default:
-		frame.format = VIDEO_FORMAT_NONE;
-		blog(LOG_ERROR, "Unknown video format: %s",
-		     video_info.finfo->name);
-		break;
-	}
-
 	obs_source_output_video(data->source, &frame);
 
 	gst_buffer_unmap(buffer, &info);
@@ -258,7 +340,7 @@ static void dbus_stream_closed_cb(GDBusConnection *connection,
 {
 	data_t *data = user_data;
 
-	if (data->pipe) {
+	if (data->pipe != NULL) {
 		gst_element_set_state(data->pipe, GST_STATE_NULL);
 
 		GstBus *bus = gst_element_get_bus(data->pipe);
@@ -364,8 +446,7 @@ static void *_start(void *p)
 
 	data->session_path = g_strdup(session_path);
 
-	guint64 window_id = g_ascii_strtoull(
-		obs_data_get_string(data->settings, "window-id"), NULL, 0);
+	guint64 window_id = obs_data_get_int(data->settings, "window");
 
 	if (window_id == 0) {
 		stream_res = g_dbus_connection_call_sync(
@@ -445,9 +526,8 @@ fail:
 
 	g_main_loop_run(data->loop);
 
-	if (data->pipe == NULL) {
+	if (data->pipe == NULL)
 		goto fail2;
-	}
 
 	gst_element_set_state(data->pipe, GST_STATE_NULL);
 
@@ -549,7 +629,7 @@ static void destroy(void *p)
 static void get_defaults(obs_data_t *settings)
 {
 	obs_data_set_default_string(settings, "connector", "");
-	obs_data_set_default_string(settings, "window-id", "");
+	obs_data_set_default_int(settings, "window", 0);
 	obs_data_set_default_bool(settings, "cursor", true);
 	obs_data_set_default_bool(settings, "timestamps", false);
 }
@@ -573,8 +653,16 @@ static obs_properties_t *get_properties(void *p)
 		g_free(tmp);
 	}
 
-	obs_properties_add_text(props, "window-id", "Window ID",
-				OBS_TEXT_DEFAULT);
+	prop = obs_properties_add_list(props, "window", "Window",
+				       OBS_COMBO_TYPE_LIST,
+				       OBS_COMBO_FORMAT_INT);
+	obs_property_list_add_int(prop, "- Desktop capture -", 0);
+
+	update_windows(data);
+	for (gint i = 0; i < data->num_windows; i++)
+		obs_property_list_add_int(prop, data->windows[i].title,
+					  data->windows[i].id);
+
 	obs_properties_add_bool(props, "cursor", "Draw mouse cursor");
 	obs_properties_add_bool(props, "timestamps",
 				"Use running time as time stamps");
