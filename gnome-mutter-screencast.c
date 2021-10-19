@@ -515,8 +515,10 @@ fail:
 	if (stream_res != NULL)
 		g_variant_unref(stream_res);
 
-	if (dbus != NULL)
+	if (dbus != NULL) {
 		g_object_unref(dbus);
+		dbus = NULL;
+	}
 
 	GSource *source = g_idle_source_new();
 	g_source_set_callback(source, loop_startup, data, NULL);
