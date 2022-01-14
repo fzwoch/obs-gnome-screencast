@@ -1,3 +1,8 @@
+> **NOTE: GNOME has begun to restrict private APIs access for general user space.
+> Expect this plugin to fail over time. (E.g. window selection is
+> already broken with lasted GNOME release). Really use OBS's portal/pipewire based
+> capture plugins.**
+
 # GNOME Screen Cast OBS Studio plugin
 
 Small source plugin to use GNOME Screen Cast functionality as a source for [OBS
