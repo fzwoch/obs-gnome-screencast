@@ -34,3 +34,17 @@ shared_library('gnome-mutter-screencast',
   install : true,
   install_dir : join_paths(get_option('libdir'), 'obs-plugins'),
 )
+shared_library('cinnamon-muffin-screencast',
+  'cinnamon-muffin-screencast.c',
+  name_prefix : '',
+  dependencies : [
+    meson.get_compiler('c').find_library('obs'),
+    dependency('gio-2.0'),
+    dependency('gstreamer-1.0'),
+    dependency('gstreamer-app-1.0'),
+    dependency('gstreamer-video-1.0'),
+    dependency('json-glib-1.0'),
+  ],
+  install : true,
+  install_dir : join_paths(get_option('libdir'), 'obs-plugins'),
+)
